@@ -67,13 +67,13 @@ export function TripsListPage() {
             onKeyDown={onNameKey}
           />
           <div className="row">
-            <div className="field-group" style={{ flex: 1, minWidth: 140 }}>
+            <div className="field-group" style={{ flex: 1, minWidth: 160 }}>
               <label className="field-label">Начало</label>
               <input className="input" type="date" value={start} onChange={(e) => setStart(e.target.value)} />
             </div>
-            <div className="field-group" style={{ flex: 1, minWidth: 140 }}>
+            <div className="field-group" style={{ flex: 1, minWidth: 160 }}>
               <label className="field-label" style={{ color: 'var(--muted)' }}>
-                Конец · если дольше дня
+                Конец
               </label>
               <input className="input" type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
             </div>
@@ -97,7 +97,7 @@ export function TripsListPage() {
       </div>
 
       {/* Список поездок */}
-      <div className="eyebrow" style={{ alignSelf: 'flex-start', marginTop: 4 }}>
+      <div className="eyebrow" style={{ alignSelf: 'flex-start', marginTop: 10, marginBottom: 10 }}>
         МОИ ПОЕЗДКИ
       </div>
 
