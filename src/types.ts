@@ -39,6 +39,7 @@ export type Trip = {
   ownerId: string;
   start: string; // 'YYYY-MM-DD' или ''
   end: string; // 'YYYY-MM-DD' или ''
+  version?: number; // оптимистичная блокировка при PATCH /trips/{id}
   members: string[]; // id пользователей
   guests: Guest[];
   expenses: Expense[];

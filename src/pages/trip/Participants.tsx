@@ -1,7 +1,6 @@
 import { useState, type KeyboardEvent } from 'react';
 import { useStore } from '../../hooks/useStore';
 import { disp } from '../../lib/format';
-import { uid } from '../../lib/id';
 import { Avatar } from '../../components/Avatar';
 import type { Participant, Trip, User } from '../../types';
 
@@ -33,7 +32,8 @@ export function Participants({ trip, ps, idSub, me }: Props) {
   const addGuest = () => {
     const name = guestName.trim();
     if (!name) return;
-    dispatch({ type: 'addGuest', tripId: trip.id, id: 'g_' + uid(), name });
+    // id придёт от сервера через dispatch в StoreContext
+    dispatch({ type: 'addGuest', tripId: trip.id, id: '', name });
     setGuestName('');
   };
   const onGuestKey = (e: KeyboardEvent) => {

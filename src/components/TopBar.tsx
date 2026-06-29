@@ -7,7 +7,7 @@ import { ThemeSwitcher } from './ThemeSwitcher';
 // Постоянный верхний бар для всех залогиненных view.
 export function TopBar() {
   const me = useMe();
-  const { dispatch } = useStore();
+  const { logout: apiLogout } = useStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -28,8 +28,7 @@ export function TopBar() {
   const incomingCount = me.incoming.length;
 
   const logout = () => {
-    dispatch({ type: 'setSession', userId: null });
-    navigate('/auth');
+    apiLogout().finally(() => navigate('/auth'));
   };
 
   return (

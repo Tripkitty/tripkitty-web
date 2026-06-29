@@ -1,8 +1,7 @@
 import { useMemo, useState, type KeyboardEvent } from 'react';
 import { useStore } from '../../hooks/useStore';
 import { disp, fmtDayLong } from '../../lib/format';
-import { exportICS } from '../../lib/ics';
-import { uid } from '../../lib/id';
+import { trips as tripsApi } from '../../api/api';
 import type { Trip, TripEvent } from '../../types';
 
 export function Itinerary({ trip, isOwner }: { trip: Trip; isOwner: boolean }) {
@@ -19,7 +18,8 @@ export function Itinerary({ trip, isOwner }: { trip: Trip; isOwner: boolean }) {
     if (!t) return alert('Назови событие');
     let end = endTime;
     if (end && !time) end = ''; // конец игнорируется без начала
-    const ev: TripEvent = { id: uid(), title: t, date, time, endTime: end, createdBy: sessionUserId! };
+    // id придёт от сервера через dispatch; placeholder для TypeScript.
+    const ev: TripEvent = { id: '', title: t, date, time, endTime: end, createdBy: sessionUserId! };
     dispatch({ type: 'addEvent', tripId: trip.id, event: ev });
     setTitle('');
     setTime('');
@@ -60,7 +60,24 @@ export function Itinerary({ trip, isOwner }: { trip: Trip; isOwner: boolean }) {
           <div className="hint">План событий — общий для всех участников</div>
         </div>
         {canExport && (
-          <button type="button" className="btn sm" style={{ background: 'var(--accent)', color: '#fff' }} onClick={() => exportICS(trip, db.users)}>
+          <button
+            type="button"
+            className="btn sm"
+            style={{ background: 'var(--accent)', color: '#fff' }}
+            onClick={async () => {
+              try {
+                const blob = await tripsApi.getCalendarIcs(trip.id);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = trip.name + '.ics';
+                a.click();
+                URL.revokeObjectURL(url);
+              } catch {
+                alert('Не удалось получить файл календаря');
+              }
+            }}
+          >
             📅 Добавить в календарь
           </button>
         )}

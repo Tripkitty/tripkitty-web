@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useStore } from '../../hooks/useStore';
-import { uid } from '../../lib/id';
 import type { Expense, Participant, Trip } from '../../types';
 
 type Props = {
@@ -34,7 +33,7 @@ export function NewExpense({ trip, ps, idName }: Props) {
     if (!effPayer) return alert('Добавь хотя бы одного участника');
 
     const exp: Expense = {
-      id: uid(),
+      id: '', // id придёт от сервера через dispatch
       title: title.trim() || 'Расход',
       amount: amt,
       payer: effPayer,
