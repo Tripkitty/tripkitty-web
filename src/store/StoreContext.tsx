@@ -1,6 +1,6 @@
 import { createContext, useCallback, useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
 import * as api from '../api/api';
-import { connectHub, disconnectHub, onHubEvent } from '../api/signalr';
+import { connectHub, disconnectHub, onHubEvent, type FriendAcceptedPayload } from '../api/signalr';
 import { clearTokens, getRefreshToken } from '../api/tokens';
 import { mapApiTripDetail, mapApiUser, mapFriendDto, curToCode } from '../api/mappers';
 import { reducer, type State } from './reducer';
@@ -133,6 +133,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // Каскадное удаление — перезапрашиваем всю поездку.
           // Идентификатор поездки неизвестен из события, поэтому обновляем все поездки.
           refreshSession().catch(() => {});
+          break;
+        }
+        case 'friend:accepted': {
+          const friend = event.payload as FriendAcceptedPayload;
+          const cur = stateRef.current;
+          const me = cur.db.users[sid];
+          if (!me) break;
+          const newFriend = { id: friend.id, name: friend.name, handle: friend.handle, email: friend.email, pass: '', friends: [], incoming: [], outgoing: [] };
+          _dispatch({
+            type: 'externalDB',
+            db: {
+              ...cur.db,
+              users: {
+                ...cur.db.users,
+                [friend.id]: newFriend,
+                [sid]: {
+                  ...me,
+                  friends: me.friends.includes(friend.id) ? me.friends : [...me.friends, friend.id],
+                  outgoing: me.outgoing.filter((x) => x !== friend.id),
+                },
+              },
+            },
+          });
           break;
         }
         default:

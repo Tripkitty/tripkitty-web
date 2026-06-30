@@ -5,6 +5,8 @@ import { getAccessToken } from './tokens';
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:5010';
 
+export type FriendAcceptedPayload = { id: string; name: string; handle: string; email: string };
+
 export type TripHubEvent =
   | { type: 'trip:updated'; payload: unknown }
   | { type: 'trip:deleted'; payload: { tripId: string } }
@@ -13,7 +15,8 @@ export type TripHubEvent =
   | { type: 'member:added'; payload: { id: string; name: string } }
   | { type: 'participant:removed'; payload: { participantId: string } }
   | { type: 'event:added'; payload: unknown }
-  | { type: 'event:removed'; payload: { eventId: string } };
+  | { type: 'event:removed'; payload: { eventId: string } }
+  | { type: 'friend:accepted'; payload: FriendAcceptedPayload };
 
 let _connection: HubConnection | null = null;
 const _handlers = new Set<(event: TripHubEvent) => void>();
@@ -38,6 +41,7 @@ export async function connectHub(): Promise<void> {
     'expense:added', 'expense:removed',
     'member:added', 'participant:removed',
     'event:added', 'event:removed',
+    'friend:accepted',
   ];
 
   for (const name of events) {
