@@ -1,13 +1,30 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import fs from 'node:fs'
+import path from 'node:path'
+
+function loadLocalCerts() {
+  const cert = path.resolve('localhost.pem')
+  const key = path.resolve('localhost-key.pem')
+  if (fs.existsSync(cert) && fs.existsSync(key)) {
+    return { cert: fs.readFileSync(cert), key: fs.readFileSync(key) }
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    host: true,
+    https: loadLocalCerts(),
+  },
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       // Иконки и манифест отдаём из public/ + статика для офлайна
       includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'icons.svg'],
       manifest: {
@@ -33,28 +50,8 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
-        // Прекэш собранной статики приложения (SPA-оболочка работает офлайн)
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
-        navigateFallback: '/index.html',
-        cleanupOutdatedCaches: true,
-        runtimeCaching: [
-          {
-            // Шрифты Google: CSS обновляем по сети, файлы кэшируем надолго
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'google-fonts-stylesheets' },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-webfonts',
-              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-        ],
       },
       devOptions: {
         // Чтобы можно было проверять PWA в `npm run dev`

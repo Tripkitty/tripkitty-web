@@ -3,6 +3,7 @@ import { useMe, useStore } from '../hooks/useStore';
 import { disp } from '../lib/format';
 import { Avatar } from './Avatar';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import { NotificationToggle } from './NotificationToggle';
 
 // Постоянный верхний бар для всех залогиненных view.
 export function TopBar() {
@@ -53,6 +54,7 @@ export function TopBar() {
           </button>
         </div>
 
+        <NotificationToggle />
         <ThemeSwitcher />
       </div>
     </div>

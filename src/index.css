@@ -137,6 +137,32 @@ select {
   color: var(--neg);
 }
 
+/* Кнопка уведомлений */
+.notif-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--muted);
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.notif-btn:hover {
+  color: var(--heading);
+  border-color: var(--accent);
+}
+.notif-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.notif-btn:disabled {
+  opacity: 0.5;
+}
+
 /* Сегментированные кнопки (nav + темы) */
 .seg-btn {
   border: none;
@@ -250,6 +276,24 @@ select {
 .input:focus {
   outline: none;
   border-color: var(--accent);
+}
+/* Нормализуем input[type=date/time] — без этого Safari и Yandex рендерят их по-разному */
+input[type="date"].input,
+input[type="time"].input {
+  -webkit-appearance: none;
+  appearance: none;
+  font-size: 16px;
+  font-family: inherit;
+  line-height: 1.2;
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  padding-right: 48px;
+}
+input[type="date"].input {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239a907a' stroke-width='2'><rect x='3' y='4' width='18' height='18' rx='2'/><line x1='16' y1='2' x2='16' y2='6'/><line x1='8' y1='2' x2='8' y2='6'/><line x1='3' y1='10' x2='21' y2='10'/></svg>");
+}
+input[type="time"].input {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239a907a' stroke-width='2'><circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/></svg>");
 }
 .input.mono {
   font-family: 'JetBrains Mono', monospace;
