@@ -1,12 +1,26 @@
 import { useStore } from '../../hooks/useStore';
 import { disp, fmt } from '../../lib/format';
-import type { Trip } from '../../types';
+import { expenseShareAmounts } from '../../lib/settlements';
+import type { Expense, Trip } from '../../types';
 
 type Props = {
   trip: Trip;
   idName: Record<string, string>;
   isOwner: boolean;
 };
+
+// Подпись разбивки: поровну — «на 3: Аня, Боб…», по частям/суммам — доля каждого.
+function buildShareLabel(e: Expense, idName: Record<string, string>, cur: string): string {
+  if (e.splitType === 0) {
+    return 'на ' + e.share.length + ': ' + e.share.map((s) => idName[s.participantId]).filter(Boolean).join(', ');
+  }
+  const parts = expenseShareAmounts(e);
+  const list = e.share
+    .filter((s) => idName[s.participantId])
+    .map((s) => idName[s.participantId] + ' — ' + fmt(parts[s.participantId] ?? 0, cur))
+    .join(', ');
+  return (e.splitType === 1 ? 'по частям: ' : 'по суммам: ') + list;
+}
 
 export function ExpenseLog({ trip, idName, isOwner }: Props) {
   const { db, sessionUserId, dispatch } = useStore();
@@ -31,8 +45,7 @@ export function ExpenseLog({ trip, idName, isOwner }: Props) {
             const cr = db.users[e.createdBy];
             const mine = e.createdBy === sessionUserId;
             const canDelete = mine || isOwner;
-            const shareLabel =
-              'на ' + e.share.length + ': ' + e.share.map((id) => idName[id]).filter(Boolean).join(', ');
+            const shareLabel = buildShareLabel(e, idName, trip.cur);
             return (
               <div key={e.id} className="log-row">
                 <div className="log-main">

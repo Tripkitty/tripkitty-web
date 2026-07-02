@@ -3,7 +3,7 @@ import * as api from '../api/api';
 import { connectHub, disconnectHub, onHubEvent } from '../api/signalr';
 import { refreshOnce } from '../api/http';
 import { clearTokens, getRefreshToken } from '../api/tokens';
-import { mapApiTripDetail, mapApiUser, mapFriendDto, curToCode } from '../api/mappers';
+import { mapApiExpense, mapApiTripDetail, mapApiUser, mapFriendDto, curToCode } from '../api/mappers';
 import { reducer, type State } from './reducer';
 import type { Action } from './actions';
 import type { DB, Trip, User } from '../types';
@@ -482,9 +482,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           action.expense.title,
           action.expense.amount,
           action.expense.payer,
+          action.expense.splitType,
           action.expense.share,
         );
-        _dispatch({ type: 'addExpense', tripId: action.tripId, expense: e });
+        _dispatch({ type: 'addExpense', tripId: action.tripId, expense: mapApiExpense(e) });
         return;
       }
 

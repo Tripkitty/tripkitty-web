@@ -47,7 +47,7 @@ realtime-обновления вместо cross-tab `storage`-события.
 | **User** | `id`, `name`, `handle`, `email`, `friends[]`, `incoming[]`, `outgoing[]` | `pass` → **`passwordHash`** (bcrypt/argon2), наружу никогда не отдаётся. `email`/`handle` — уникальные индексы. |
 | **Trip** | `id`, `name`, `cur`, `ownerId`, `start`, `end`, `members[]`, `guests[]`, `version` | добавлен `version`/`updatedAt` для оптимистичной блокировки. |
 | **Guest** | `id` (`g_*`), `name` | без изменений. |
-| **Expense** | `id`, `title`, `amount`, `payer`, `share[]`, `createdBy` | без изменений. `amount` хранить аккуратно (см. §4.4 про деньги). |
+| **Expense** | `id`, `title`, `amount`, `payer`, `splitType`, `share[]`, `createdBy` | `splitType`: 0 — поровну, 1 — по частям, 2 — точные суммы. `share` — массив `{ participantId, weight?, amount? }`. `amount` хранить аккуратно (см. §4.4 про деньги). |
 | **TripEvent** | `id`, `title`, `date`, `time`, `endTime`, `createdBy` | без изменений. |
 
 **Граф друзей** (`friends`/`incoming`/`outgoing`) на сервере удобнее хранить отдельной таблицей рёбер
@@ -132,9 +132,14 @@ realtime-обновления вместо cross-tab `storage`-события.
 
 | Метод | Путь | Тело | Назначение |
 |---|---|---|---|
-| `POST` | `/trips/{id}/expenses` | `{ title, amount, payer, share[] }` | Добавить расход. ← `addExpense` / `NewExpense` |
+| `POST` | `/trips/{id}/expenses` | `{ title, amount, payer, splitType, share[] }` | Добавить расход. ← `addExpense` / `NewExpense` |
 | `DELETE` | `/trips/{id}/expenses/{expenseId}` | — | Удалить. ← `removeExpense` |
 | `GET` | `/trips/{id}/settlements` | — | Балансы + минимальный набор переводов `{ bal, tx }`. ← `computeSettlements` |
+
+Способы разбивки (`splitType`, элементы `share` — `{ participantId, weight?, amount? }`):
+- `0` Equal — поровну между участниками `share` (поля `weight`/`amount` не нужны);
+- `1` ByShares — пропорционально `weight` (все `weight` обязательны и `> 0`);
+- `2` ByAmounts — точные суммы `amount` (все обязательны, `> 0`, их сумма = `amount` расхода ±0.01).
 
 Валидация расхода (на сервере):
 - `amount > 0`;
@@ -143,7 +148,7 @@ realtime-обновления вместо cross-tab `storage`-события.
 - `createdBy` проставляет сервер из токена (не доверять клиенту).
 
 `GET /settlements` переносит `src/lib/settlements.ts` на бэкенд: балансы (плательщику +amount, каждому из
-`share` −amount/share.length, округление до копеек) и жадная минимизация переводов. Можно считать на лету.
+`share` — его доля по `splitType`, округление до копеек) и жадная минимизация переводов. Можно считать на лету.
 
 ### 3.6 Программа поездки (события)
 

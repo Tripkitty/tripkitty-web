@@ -1,5 +1,5 @@
 // Маппинг между DTO API и доменными типами фронтенда.
-import type { Expense, Guest, Trip, TripEvent, User } from '../types';
+import type { Expense, Guest, SplitType, Trip, TripEvent, User } from '../types';
 import type { ApiExpense, ApiFriendDto, ApiGuest, ApiTripDetail, ApiTripEvent, ApiUser } from './api';
 
 // Валюта: API использует коды (RUB), фронтенд — глифы (₽).
@@ -43,13 +43,19 @@ export function mapFriendDto(f: ApiFriendDto): User {
 
 // ─── API Trip → Domain Trip ───────────────────────────────────────────────────
 
-function mapApiExpense(e: ApiExpense): Expense {
+export function mapApiExpense(e: ApiExpense): Expense {
+  const splitType: SplitType = e.splitType === 1 ? 1 : e.splitType === 2 ? 2 : 0;
   return {
     id: e.id,
     title: e.title,
     amount: e.amount,
     payer: e.payer,
-    share: e.share,
+    splitType,
+    share: e.share.map((s) => ({
+      participantId: s.participantId,
+      weight: s.weight ?? undefined,
+      amount: s.amount ?? undefined,
+    })),
     createdBy: e.createdBy,
   };
 }

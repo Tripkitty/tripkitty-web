@@ -705,6 +705,30 @@ input[type="time"].input {
   font-size: 20px;
 }
 
+/* Ввод частей / точных сумм в форме нового расхода */
+.split-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.split-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.split-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.split-input {
+  width: 110px;
+  flex: none;
+  padding: 12px 14px;
+}
+
 /* Чипы участников */
 .chips-wrap {
   display: flex;

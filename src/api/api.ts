@@ -16,12 +16,19 @@ export type ApiTripSummary = {
   version: number;
 };
 
+export type ApiExpenseShare = {
+  participantId: string;
+  weight?: number | null;
+  amount?: number | null;
+};
+
 export type ApiExpense = {
   id: string;
   title: string;
   amount: number;
   payer: string;
-  share: string[];
+  splitType: number;
+  share: ApiExpenseShare[];
   createdBy: string;
 };
 
@@ -101,8 +108,8 @@ export const trips = {
 
   // ─── Расходы ─────────────────────────────────────────────────────────────
 
-  addExpense: (tripId: string, title: string, amount: number, payer: string, share: string[]) =>
-    http.post<{ expense: ApiExpense }>(`/trips/${tripId}/expenses`, { title, amount, payer, share }),
+  addExpense: (tripId: string, title: string, amount: number, payer: string, splitType: number, share: ApiExpenseShare[]) =>
+    http.post<{ expense: ApiExpense }>(`/trips/${tripId}/expenses`, { title, amount, payer, splitType, share }),
 
   removeExpense: (tripId: string, expenseId: string) =>
     http.delete<{ message: string }>(`/trips/${tripId}/expenses/${expenseId}`),

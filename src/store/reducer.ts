@@ -118,7 +118,7 @@ export function reducer(state: State, action: Action): State {
             // Удаление участника убирает его из всех расходов; расходы с опустевшим share отбрасываются.
             expenses: t.expenses
               .filter((e) => e.payer !== pid)
-              .map((e) => ({ ...e, share: e.share.filter((x) => x !== pid) }))
+              .map((e) => ({ ...e, share: e.share.filter((s) => s.participantId !== pid) }))
               .filter((e) => e.share.length > 0),
           };
         }),
