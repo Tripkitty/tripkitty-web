@@ -627,6 +627,11 @@ input[type="time"].input {
   gap: 0;
   border-bottom: 1.5px solid var(--line);
   padding: 0 clamp(16px, 4vw, 40px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.trip-tabs::-webkit-scrollbar {
+  display: none;
 }
 .trip-tab-btn {
   background: none;
@@ -647,6 +652,16 @@ input[type="time"].input {
 .trip-tab-btn.active {
   color: var(--accent);
   border-bottom-color: var(--accent);
+}
+@media (max-width: 480px) {
+  .trip-tabs {
+    padding: 0 10px;
+  }
+  .trip-tab-btn {
+    padding: 13px 10px 11px;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+  }
 }
 
 /* ===== Trip detail body ===== */
