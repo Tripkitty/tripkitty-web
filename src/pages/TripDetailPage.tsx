@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { useMe, useStore } from '../hooks/useStore';
 import { disp, fmtDate, plural } from '../lib/format';
@@ -11,13 +11,21 @@ import { Balances } from './trip/Balances';
 import { Settlements } from './trip/Settlements';
 import { Itinerary } from './trip/Itinerary';
 
+type Tab = 'participants' | 'expenses' | 'itinerary';
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'participants', label: 'Участники' },
+  { id: 'expenses', label: 'Расходы' },
+  { id: 'itinerary', label: 'Программа поездки' },
+];
+
 export function TripDetailPage() {
   const { id } = useParams();
   const { db, sessionUserId, dispatch } = useStore();
   const me = useMe()!;
   const trip = db.trips.find((t) => t.id === id);
+  const [activeTab, setActiveTab] = useState<Tab>('participants');
 
-  // Производные данные считаем мемоизированно и раздаём в дочерние блоки.
   const ps = useMemo(
     () => (trip ? tripParticipants(trip, db.users, sessionUserId) : []),
     [trip, db.users, sessionUserId],
@@ -62,23 +70,44 @@ export function TripDetailPage() {
           </div>
         </div>
 
-        {/* Тело: 2 колонки */}
-        <div className="trip-body">
-          <div className="trip-col">
-            <TripDates trip={trip} isOwner={isOwner} />
-            <Participants trip={trip} ps={ps} idSub={idSub} me={me} />
-            <NewExpense trip={trip} ps={ps} idName={idName} />
-          </div>
-
-          <div className="trip-col">
-            <ExpenseLog trip={trip} idName={idName} isOwner={isOwner} />
-            <Balances trip={trip} ps={ps} idName={idName} />
-            <Settlements trip={trip} ps={ps} idName={idName} isOwner={isOwner} />
-          </div>
+        {/* Таб-бар */}
+        <div className="trip-tabs">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={`trip-tab-btn${activeTab === tab.id ? ' active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        {/* Программа поездки */}
-        <Itinerary trip={trip} isOwner={isOwner} />
+        {/* Содержимое вкладок */}
+        <div className="trip-body">
+          {activeTab === 'participants' && (
+            <div className="trip-col">
+              <TripDates trip={trip} isOwner={isOwner} />
+              <Participants trip={trip} ps={ps} idSub={idSub} me={me} />
+            </div>
+          )}
+
+          {activeTab === 'expenses' && (
+            <div className="trip-col">
+              <NewExpense trip={trip} ps={ps} idName={idName} />
+              <ExpenseLog trip={trip} idName={idName} isOwner={isOwner} />
+              <Balances trip={trip} ps={ps} idName={idName} />
+              <Settlements trip={trip} ps={ps} idName={idName} isOwner={isOwner} />
+            </div>
+          )}
+
+          {activeTab === 'itinerary' && (
+            <div className="trip-col">
+              <Itinerary trip={trip} isOwner={isOwner} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
