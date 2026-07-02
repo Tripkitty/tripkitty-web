@@ -288,6 +288,15 @@ input[type="time"].input {
   background-repeat: no-repeat;
   background-position: right 16px center;
   padding-right: 48px;
+  /* iOS: с appearance:none внутреннее значение схлопывается до фокуса — фиксируем высоту */
+  min-height: 52px;
+}
+/* iOS: без min-height внутренний блок значения имеет нулевую высоту, пока поле не в фокусе;
+   заодно выравниваем текст влево (iOS центрирует по умолчанию) */
+input[type="date"].input::-webkit-date-and-time-value,
+input[type="time"].input::-webkit-date-and-time-value {
+  min-height: 1.2em;
+  text-align: left;
 }
 input[type="date"].input {
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239a907a' stroke-width='2'><rect x='3' y='4' width='18' height='18' rx='2'/><line x1='16' y1='2' x2='16' y2='6'/><line x1='8' y1='2' x2='8' y2='6'/><line x1='3' y1='10' x2='21' y2='10'/></svg>");
@@ -800,6 +809,8 @@ button.participant-chip:hover {
 }
 .log-main {
   flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .log-title {
   font-size: 16px;
@@ -892,10 +903,16 @@ button.participant-chip:hover {
   display: flex;
   align-items: center;
   gap: 6px;
+  /* На узких экранах: переносимся на свою строку и сжимаемся под неё —
+     у input[type=time] большая собственная ширина (~140px в Chromium) */
+  flex: 1 1 220px;
+  min-width: 0;
 }
 .time-range .input {
   width: auto;
   padding: 12px;
+  flex: 1 1 0;
+  min-width: 0;
 }
 .program {
   display: flex;
@@ -942,9 +959,38 @@ button.participant-chip:hover {
   flex: 1;
   display: flex;
   flex-direction: column;
+  /* Длинные слова (имена, названия) не должны распирать строку события */
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .item-title {
   font-size: 16px;
   font-weight: 700;
   color: var(--heading);
+}
+
+/* ===== Мобильная адаптация списков (в конце файла — правила выше не должны
+   переопределять этот медиазапрос при равной специфичности) ===== */
+@media (max-width: 480px) {
+  /* Журнал расходов: название на всю ширину, сумма и плательщик — строкой ниже,
+     иначе колонка названия сжимается до пары букв */
+  .log-row {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+  .log-main {
+    flex: 1 1 100%;
+  }
+  .log-side {
+    margin-left: auto;
+  }
+  /* Программа: время над названием события — в одну строку названию не хватает места */
+  .itinerary-item {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+  .item-time {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
 }

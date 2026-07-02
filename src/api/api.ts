@@ -125,6 +125,9 @@ export const trips = {
   removeEvent: (tripId: string, eventId: string) =>
     http.delete<{ message: string }>(`/trips/${tripId}/events/${eventId}`),
 
+  getCalendarUrl: (tripId: string) =>
+    http.get<{ url: string; httpsUrl: string }>(`/trips/${tripId}/calendar-url`),
+
   getCalendarIcs: async (tripId: string): Promise<Blob> => {
     const at = (await import('./tokens')).getAccessToken();
     const base = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:5010';
