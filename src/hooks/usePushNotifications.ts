@@ -46,6 +46,8 @@ export function usePushNotifications() {
       const keys = json.keys as { p256dh: string; auth: string };
       await push.subscribe(sub.endpoint, keys.p256dh, keys.auth);
       setSubscribed(true);
+    } catch {
+      alert('Не удалось подключить уведомления. Попробуй позже.');
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
 import * as api from '../api/api';
 import { connectHub, disconnectHub, onHubEvent, type FriendAcceptedPayload } from '../api/signalr';
+import { refreshOnce } from '../api/http';
 import { clearTokens, getRefreshToken } from '../api/tokens';
 import { mapApiTripDetail, mapApiUser, mapFriendDto, curToCode } from '../api/mappers';
 import { reducer, type State } from './reducer';
@@ -28,6 +29,10 @@ function emptyDB(): DB {
 async function bootstrapFromApi(): Promise<State | null> {
   const rt = await getRefreshToken();
   if (!rt) return null;
+
+  // Всегда обновляем AT через refresh-token перед API-запросами.
+  // AT хранится только в памяти и сбрасывается при перезагрузке страницы.
+  await refreshOnce();
 
   const [{ user }, { trips: summaries }, friendLists] = await Promise.all([
     api.auth.me(),
@@ -89,8 +94,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       } else {
         _dispatch({ type: 'setSession', userId: null });
       }
-    } catch {
-      await clearTokens();
+    } catch (e) {
+      const status = (e instanceof Error && 'status' in e) ? (e as { status: number }).status : 0;
+      if (status === 401 || status === 403 || status === 422) {
+        await clearTokens();
+      }
       _dispatch({ type: 'setSession', userId: null });
     }
   }, []);

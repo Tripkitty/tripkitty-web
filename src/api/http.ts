@@ -33,15 +33,18 @@ async function doRefresh(): Promise<void> {
   });
 
   if (!res.ok) {
-    await clearTokens();
-    throw new ApiError('INVALID_TOKEN', 'Сессия истекла, войдите заново', null, 422);
+    if (res.status === 401 || res.status === 403) {
+      await clearTokens();
+      throw new ApiError('INVALID_TOKEN', 'Сессия истекла, войдите заново', null, 401);
+    }
+    throw new ApiError('SERVER_ERROR', `Сервер недоступен (${res.status})`, null, res.status);
   }
 
-  const data = (await res.json()) as { accessToken: string; refreshToken: string };
-  await setTokens(data.accessToken, data.refreshToken);
+  const data = (await res.json()) as { tokens: { accessToken: string; refreshToken: string } };
+  await setTokens(data.tokens.accessToken, data.tokens.refreshToken);
 }
 
-function refreshOnce(): Promise<void> {
+export function refreshOnce(): Promise<void> {
   if (!_refreshing) {
     _refreshing = doRefresh().finally(() => { _refreshing = null; });
   }

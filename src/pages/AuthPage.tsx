@@ -1,22 +1,13 @@
 import { useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../hooks/useStore';
-import { disp } from '../lib/format';
-import { Avatar } from '../components/Avatar';
 import { HeaderBand } from '../components/HeaderBand';
 import { auth } from '../api/api';
 import { setTokens } from '../api/tokens';
 import { ApiError } from '../api/http';
 
-const DEMO_EMAILS = [
-  { id: 'u_artem', email: 'me@trip.ru', name: 'Артём' },
-  { id: 'u_anya', email: 'anya@trip.ru', name: 'Аня' },
-  { id: 'u_danil', email: 'danil@trip.ru', name: 'Данил' },
-  { id: 'u_vika', email: 'vika@trip.ru', name: 'Вика' },
-];
-
 export function AuthPage() {
-  const { db, refreshSession } = useStore();
+  const { refreshSession } = useStore();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -77,9 +68,6 @@ export function AuthPage() {
   const onKey = (e: KeyboardEvent) => { if (e.key === 'Enter') submit(); };
   const toggle = () => { setMode(isRegister ? 'login' : 'register'); setErr(''); };
 
-  // Демо-пользователи: берём из локального db (если успели загрузиться) или из списка.
-  const demoUsers = DEMO_EMAILS.map((d) => db.users[d.id] ?? { id: d.id, name: d.name, handle: '', email: d.email, pass: '', friends: [], incoming: [], outgoing: [] });
-
   return (
     <div className="view">
       <div className="card" style={{ maxWidth: 440 }}>
@@ -115,21 +103,6 @@ export function AuthPage() {
           <button type="button" className="link" style={{ alignSelf: 'center' }} onClick={toggle}>
             {isRegister ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться'}
           </button>
-
-          <div className="demo-card">
-            <div className="eyebrow">ДЕМО · ВОЙТИ В ОДИН КЛИК</div>
-            <p className="hint" style={{ margin: 0 }}>
-              Пароль у всех <b>1234</b>. Можно открыть несколько вкладок под разными аккаунтами.
-            </p>
-            <div className="demo-chips">
-              {demoUsers.map((u) => (
-                <button key={u.id} type="button" className="demo-chip" disabled={busy} onClick={() => enter(u.email, '1234')}>
-                  <Avatar id={u.id} name={u.name} size={24} />
-                  {disp(u.name)}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>
