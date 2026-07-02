@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
+import { joinTrip, leaveTrip } from '../api/signalr';
 import { useMe, useStore } from '../hooks/useStore';
 import { disp, fmtDate, plural } from '../lib/format';
 import { disambiguate, tripParticipants } from '../lib/participants';
@@ -31,6 +32,12 @@ export function TripDetailPage() {
     [trip, db.users, sessionUserId],
   );
   const { idName, idSub } = useMemo(() => disambiguate(ps, db.users), [ps, db.users]);
+
+  useEffect(() => {
+    if (!id) return;
+    joinTrip(id).catch(() => {});
+    return () => { leaveTrip(id).catch(() => {}); };
+  }, [id]);
 
   if (!trip) return <Navigate to="/trips" replace />;
 

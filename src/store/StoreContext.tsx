@@ -1,6 +1,6 @@
 import { createContext, useCallback, useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
 import * as api from '../api/api';
-import { connectHub, disconnectHub, onHubEvent, type FriendAcceptedPayload } from '../api/signalr';
+import { connectHub, disconnectHub, onHubEvent } from '../api/signalr';
 import { refreshOnce } from '../api/http';
 import { clearTokens, getRefreshToken } from '../api/tokens';
 import { mapApiTripDetail, mapApiUser, mapFriendDto, curToCode } from '../api/mappers';
@@ -61,7 +61,10 @@ async function bootstrapFromApi(): Promise<State | null> {
   for (const { trip } of tripDetails) {
     const { trip: domainTrip, users: tripUsers } = mapApiTripDetail(trip);
     domainTrips.push(domainTrip);
-    Object.assign(users, tripUsers);
+    // Не перезаписываем пользователей, уже загруженных с полными данными (friends/incoming/outgoing).
+    for (const [id, u] of Object.entries(tripUsers)) {
+      if (!users[id]) users[id] = u;
+    }
   }
 
   return { db: { users, trips: domainTrips }, sessionUserId: user.id };
@@ -109,6 +112,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // ─── SignalR realtime ────────────────────────────────────────────────────────
 
+  // Мёрджит пользователей из поездки с текущим store, не перезаписывая текущего
+  // пользователя — у него есть friends/incoming/outgoing, у trip-member их нет.
+  const mergeUsers = (existing: Record<string, User>, incoming: Record<string, User>) => {
+    const meId = stateRef.current.sessionUserId;
+    const merged = { ...existing, ...incoming };
+    if (meId && existing[meId]) merged[meId] = existing[meId];
+    return merged;
+  };
+
   useEffect(() => {
     return onHubEvent((event) => {
       const sid = stateRef.current.sessionUserId;
@@ -116,17 +128,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       switch (event.type) {
         case 'trip:updated': {
-          // Перезагружаем детали поездки при обновлении от другого клиента.
-          const payload = event.payload as { id?: string };
-          if (payload?.id) {
-            api.trips.get(payload.id).then(({ trip }) => {
+          const { id: tripId } = event.payload;
+          if (tripId) {
+            api.trips.get(tripId).then(({ trip }) => {
               const { trip: dt, users } = mapApiTripDetail(trip);
+              const cur = stateRef.current;
               _dispatch({
                 type: 'externalDB',
                 db: {
-                  ...stateRef.current.db,
-                  users: { ...stateRef.current.db.users, ...users },
-                  trips: stateRef.current.db.trips.map((t) => (t.id === dt.id ? dt : t)),
+                  ...cur.db,
+                  users: mergeUsers(cur.db.users, users),
+                  trips: cur.db.trips.map((t) => (t.id === dt.id ? dt : t)),
                 },
               });
             }).catch(() => {});
@@ -137,14 +149,88 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           _dispatch({ type: 'deleteTrip', tripId: event.payload.tripId });
           break;
         }
+        case 'trip:joined': {
+          const { tripId } = event.payload;
+          api.trips.get(tripId).then(({ trip }) => {
+            const { trip: dt, users } = mapApiTripDetail(trip);
+            const cur = stateRef.current;
+            _dispatch({
+              type: 'externalDB',
+              db: {
+                ...cur.db,
+                users: mergeUsers(cur.db.users, users),
+                trips: cur.db.trips.some((t) => t.id === dt.id) ? cur.db.trips : [...cur.db.trips, dt],
+              },
+            });
+          }).catch(() => {});
+          break;
+        }
+        case 'expense:added': {
+          const { tripId } = event.payload;
+          api.trips.get(tripId).then(({ trip }) => {
+            const { trip: dt, users } = mapApiTripDetail(trip);
+            const cur = stateRef.current;
+            _dispatch({
+              type: 'externalDB',
+              db: {
+                ...cur.db,
+                users: mergeUsers(cur.db.users, users),
+                trips: cur.db.trips.map((t) => (t.id === dt.id ? dt : t)),
+              },
+            });
+          }).catch(() => {});
+          break;
+        }
+        case 'expense:removed': {
+          const { tripId, expenseId } = event.payload;
+          _dispatch({ type: 'removeExpense', tripId, expenseId });
+          break;
+        }
+        case 'event:added': {
+          const { tripId } = event.payload;
+          api.trips.get(tripId).then(({ trip }) => {
+            const { trip: dt, users } = mapApiTripDetail(trip);
+            const cur = stateRef.current;
+            _dispatch({
+              type: 'externalDB',
+              db: {
+                ...cur.db,
+                users: { ...cur.db.users, ...users },
+                trips: cur.db.trips.map((t) => (t.id === dt.id ? dt : t)),
+              },
+            });
+          }).catch(() => {});
+          break;
+        }
+        case 'event:removed': {
+          const { tripId, eventId } = event.payload;
+          _dispatch({ type: 'removeEvent', tripId, eventId });
+          break;
+        }
+        case 'member:added': {
+          const { tripId, id: userId } = event.payload;
+          _dispatch({ type: 'addMember', tripId, userId });
+          break;
+        }
         case 'participant:removed': {
-          // Каскадное удаление — перезапрашиваем всю поездку.
-          // Идентификатор поездки неизвестен из события, поэтому обновляем все поездки.
-          refreshSession().catch(() => {});
+          const { tripId, participantId } = event.payload;
+          api.trips.get(tripId).then(({ trip }) => {
+            const { trip: dt, users } = mapApiTripDetail(trip);
+            const cur = stateRef.current;
+            _dispatch({
+              type: 'externalDB',
+              db: {
+                ...cur.db,
+                users: mergeUsers(cur.db.users, users),
+                trips: cur.db.trips.map((t) => (t.id === dt.id ? dt : t)),
+              },
+            });
+          }).catch(() => refreshSession());
+          void participantId;
           break;
         }
         case 'friend:accepted': {
-          const friend = event.payload as FriendAcceptedPayload;
+          const friend = event.payload;
           const cur = stateRef.current;
           const me = cur.db.users[sid];
           if (!me) break;
@@ -160,6 +246,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   ...me,
                   friends: me.friends.includes(friend.id) ? me.friends : [...me.friends, friend.id],
                   outgoing: me.outgoing.filter((x) => x !== friend.id),
+                },
+              },
+            },
+          });
+          break;
+        }
+        case 'friend:request': {
+          const requester = event.payload;
+          const cur = stateRef.current;
+          const me = cur.db.users[sid];
+          if (!me) break;
+          const newRequester = { id: requester.id, name: requester.name, handle: requester.handle, email: requester.email, pass: '', friends: [], incoming: [], outgoing: [] };
+          _dispatch({
+            type: 'externalDB',
+            db: {
+              ...cur.db,
+              users: {
+                ...cur.db.users,
+                [requester.id]: newRequester,
+                [sid]: {
+                  ...me,
+                  incoming: me.incoming.includes(requester.id) ? me.incoming : [...me.incoming, requester.id],
                 },
               },
             },
@@ -255,7 +363,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           type: 'externalDB',
           db: {
             ...st.db,
-            users: { ...st.db.users, ...users },
+            users: mergeUsers(st.db.users, users),
             trips: [domainTrip, ...st.db.trips],
           },
         });
@@ -327,7 +435,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           type: 'externalDB',
           db: {
             ...st.db,
-            users: { ...st.db.users, ...users },
+            users: mergeUsers(st.db.users, users),
             trips: st.db.trips.map((t) => (t.id === dt.id ? dt : t)),
           },
         });
@@ -359,7 +467,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           type: 'externalDB',
           db: {
             ...st.db,
-            users: { ...st.db.users, ...users },
+            users: mergeUsers(st.db.users, users),
             trips: st.db.trips.map((t) => (t.id === dt.id ? dt : t)),
           },
         });
