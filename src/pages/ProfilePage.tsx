@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMe, useStore } from '../hooks/useStore';
 import { disp } from '../lib/format';
 import { HeaderBand } from '../components/HeaderBand';
@@ -6,13 +7,19 @@ import { Avatar } from '../components/Avatar';
 import { friends as friendsApi } from '../api/api';
 import { ApiError } from '../api/http';
 
-export function FriendsPage() {
-  const { db, dispatch } = useStore();
+// Профиль: карточка данных пользователя + управление друзьями.
+export function ProfilePage() {
+  const { db, dispatch, logout: apiLogout } = useStore();
   const me = useMe()!;
+  const navigate = useNavigate();
 
   const [handle, setHandle] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+
+  const logout = () => {
+    apiLogout().finally(() => navigate('/auth'));
+  };
 
   const sendRequest = async () => {
     const h = handle.trim().replace(/^@+/, '').toLowerCase();
@@ -51,14 +58,37 @@ export function FriendsPage() {
   const incomingUsers = me.incoming.map((id) => db.users[id]).filter(Boolean);
 
   return (
-    <div className="view" style={{ maxWidth: 640 }}>
+    <div className="view profile-view">
+      {/* Карточка профиля */}
       <div className="card">
-        <HeaderBand eyebrow="СОВМЕСТНЫЕ РАСЧЁТЫ" title="Друзья" />
+        <HeaderBand eyebrow="Личный кабинет" title="Профиль" />
+        <div className="card-body">
+          <div className="profile-head">
+            <Avatar id={me.id} name={me.name} size={64} isMe />
+            <div className="profile-id">
+              <span className="profile-name">{disp(me.name)}</span>
+              <span className="friend-handle">@{me.handle}</span>
+            </div>
+            <button type="button" className="link danger" onClick={logout}>
+              Выйти
+            </button>
+          </div>
 
-        <div className="friends-body">
+          <div className="profile-fields">
+            <ProfileField label="ФИО" value={me.name} />
+            <ProfileField label="Логин" value={'@' + me.handle} />
+            <ProfileField label="Почта" value={me.email || '—'} />
+          </div>
+        </div>
+      </div>
+
+      {/* Карточка друзей */}
+      <div className="card">
+        <HeaderBand eyebrow="Совместные расчёты" title="Друзья" decoSize={130} titleSize="clamp(20px, 4.4vw, 26px)" />
+        <div className="card-body">
           {/* Добавить друга по @логину */}
-          <section className="friends-section">
-            <label className="field-label">ДОБАВИТЬ ДРУГА ПО @ЛОГИНУ</label>
+          <section className="card-section">
+            <label className="field-label">Добавить друга по @логину</label>
             <div className="row">
               <div className="handle-wrap" style={{ flex: 1 }}>
                 <span className="at">@</span>
@@ -79,8 +109,8 @@ export function FriendsPage() {
 
           {/* Входящие заявки */}
           {incomingUsers.length > 0 && (
-            <section className="friends-section">
-              <label className="field-label">ЗАЯВКИ В ДРУЗЬЯ</label>
+            <section className="card-section">
+              <label className="field-label">Заявки в друзья</label>
               {incomingUsers.map((u) => (
                 <div key={u.id} className="friend-row">
                   <Avatar id={u.id} name={u.name} size={36} />
@@ -102,8 +132,8 @@ export function FriendsPage() {
           )}
 
           {/* Мои друзья */}
-          <section className="friends-section">
-            <label className="field-label">МОИ ДРУЗЬЯ</label>
+          <section className="card-section">
+            <label className="field-label">Мои друзья</label>
             {friendUsers.length === 0 ? (
               <div className="empty">Пока никого. Добавь друга по @логину выше ↑</div>
             ) : (
@@ -123,6 +153,15 @@ export function FriendsPage() {
           </section>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ProfileField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="profile-field">
+      <span className="field-label">{label}</span>
+      <span className="value">{value}</span>
     </div>
   );
 }

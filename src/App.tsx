@@ -3,7 +3,8 @@ import { AppLayout } from './components/AppLayout';
 import { AuthPage } from './pages/AuthPage';
 import { TripsListPage } from './pages/TripsListPage';
 import { TripDetailPage } from './pages/TripDetailPage';
-import { FriendsPage } from './pages/FriendsPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { SettingsPage } from './pages/SettingsPage';
 
 export default function App() {
   return (
@@ -12,7 +13,10 @@ export default function App() {
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/trips" element={<TripsListPage />} />
         <Route path="/trips/:id" element={<TripDetailPage />} />
-        <Route path="/friends" element={<FriendsPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        {/* Друзья переехали в профиль — старые ссылки редиректим */}
+        <Route path="/friends" element={<Navigate to="/profile" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/trips" replace />} />
     </Routes>
