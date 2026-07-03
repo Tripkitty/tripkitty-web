@@ -12,7 +12,7 @@ export function TripDates({ trip, isOwner }: { trip: Trip; isOwner: boolean }) {
 
       {isOwner ? (
         <div className="row">
-          <div className="field-group" style={{ flex: 1, minWidth: 140 }}>
+          <div className="field-group" style={{ flex: 1, minWidth: 160 }}>
             <label className="field-label" style={{ fontSize: 11 }}>
               Начало
             </label>
@@ -23,9 +23,9 @@ export function TripDates({ trip, isOwner }: { trip: Trip; isOwner: boolean }) {
               onChange={(e) => dispatch({ type: 'setTripStart', tripId: trip.id, start: e.target.value })}
             />
           </div>
-          <div className="field-group" style={{ flex: 1, minWidth: 140 }}>
+          <div className="field-group" style={{ flex: 1, minWidth: 160 }}>
             <label className="field-label" style={{ fontSize: 11, color: 'var(--muted)' }}>
-              Конец · если дольше дня
+              Конец
             </label>
             <input
               className="input"

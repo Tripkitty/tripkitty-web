@@ -4,7 +4,6 @@ import { useMe, useStore } from '../hooks/useStore';
 import { fmt, fmtDate, initial, plural } from '../lib/format';
 import { userColor } from '../lib/avatar';
 import { tripParticipants } from '../lib/participants';
-import { uid } from '../lib/id';
 import { HeaderBand } from '../components/HeaderBand';
 import type { Trip } from '../types';
 
@@ -25,37 +24,42 @@ export function TripsListPage() {
   const [cur, setCur] = useState('₽');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const createTrip = () => {
-    const id = uid();
-    const trip: Trip = {
-      id,
-      name: name.trim() || 'Без названия',
-      cur,
-      ownerId: me.id,
-      start,
-      end,
-      members: [me.id],
-      guests: [],
-      expenses: [],
-      events: [],
-    };
-    dispatch({ type: 'createTrip', trip });
-    setName('');
-    setStart('');
-    setEnd('');
-    navigate('/trips/' + id);
+  const createTrip = async () => {
+    setBusy(true);
+    try {
+      // Передаём заглушку-объект; dispatch в StoreContext вызовет API и получит настоящий id.
+      await dispatch({
+        type: 'createTrip',
+        trip: {
+          id: '',
+          name: name.trim() || 'Без названия',
+          cur,
+          ownerId: me.id,
+          start,
+          end,
+          members: [me.id],
+          guests: [],
+          expenses: [],
+          events: [],
+        },
+      });
+      setName('');
+      setStart('');
+      setEnd('');
+      navigate('/trips');
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const onNameKey = (e: KeyboardEvent) => {
-    if (e.key === 'Enter') createTrip();
-  };
+  const onNameKey = (e: KeyboardEvent) => { if (e.key === 'Enter') createTrip(); };
 
   const myTrips = db.trips.filter((t) => t.members.includes(sessionUserId!));
 
   return (
     <div className="view" style={{ maxWidth: 1080 }}>
-      {/* Карточка создания поездки */}
       <div className="card">
         <HeaderBand eyebrow="НОВАЯ ПОЕЗДКА" title="Куда едем?" />
         <div className="create-body">
@@ -67,14 +71,12 @@ export function TripsListPage() {
             onKeyDown={onNameKey}
           />
           <div className="row">
-            <div className="field-group" style={{ flex: 1, minWidth: 140 }}>
+            <div className="field-group" style={{ flex: 1, minWidth: 160 }}>
               <label className="field-label">Начало</label>
               <input className="input" type="date" value={start} onChange={(e) => setStart(e.target.value)} />
             </div>
-            <div className="field-group" style={{ flex: 1, minWidth: 140 }}>
-              <label className="field-label" style={{ color: 'var(--muted)' }}>
-                Конец · если дольше дня
-              </label>
+            <div className="field-group" style={{ flex: 1, minWidth: 160 }}>
+              <label className="field-label" style={{ color: 'var(--muted)' }}>Конец</label>
               <input className="input" type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
             </div>
           </div>
@@ -83,21 +85,18 @@ export function TripsListPage() {
               <label className="field-label">Валюта</label>
               <select className="input" value={cur} onChange={(e) => setCur(e.target.value)}>
                 {CURRENCIES.map((c) => (
-                  <option key={c.glyph} value={c.glyph}>
-                    {c.label}
-                  </option>
+                  <option key={c.glyph} value={c.glyph}>{c.label}</option>
                 ))}
               </select>
             </div>
-            <button type="button" className="btn" style={{ flex: 1, minWidth: 160 }} onClick={createTrip}>
-              Создать поездку
+            <button type="button" className="btn" style={{ flex: 1, minWidth: 160 }} onClick={createTrip} disabled={busy}>
+              {busy ? 'Создаём…' : 'Создать поездку'}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Список поездок */}
-      <div className="eyebrow" style={{ alignSelf: 'flex-start', marginTop: 4 }}>
+      <div className="eyebrow" style={{ alignSelf: 'flex-start', marginTop: 10, marginBottom: 10 }}>
         МОИ ПОЕЗДКИ
       </div>
 
@@ -146,14 +145,7 @@ function TripCard({ trip }: { trip: Trip }) {
           <span
             key={p.id}
             className="avatar"
-            style={{
-              width: 26,
-              height: 26,
-              fontSize: 12,
-              background: userColor(p.id),
-              marginLeft: -6,
-              border: '2px solid var(--card)',
-            }}
+            style={{ width: 26, height: 26, fontSize: 12, background: userColor(p.id), marginLeft: -6, border: '2px solid var(--card)' }}
           >
             {initial(p.name)}
           </span>

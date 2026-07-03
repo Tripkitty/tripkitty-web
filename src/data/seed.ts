@@ -21,9 +21,9 @@ export function seedDb(): DB {
       members: ['u_artem', 'u_anya', 'u_danil'],
       guests: [{ id: 'g_anya2', name: 'Аня' }],
       expenses: [
-        { id: 'e1', title: 'Гостиница', amount: 9000, payer: 'u_artem', share: ['u_artem', 'u_anya', 'u_danil'], createdBy: 'u_artem' },
-        { id: 'e2', title: 'Такси', amount: 1200, payer: 'u_anya', share: ['u_artem', 'u_anya'], createdBy: 'u_anya' },
-        { id: 'e3', title: 'Ужин', amount: 3600, payer: 'u_danil', share: ['u_artem', 'u_anya', 'u_danil'], createdBy: 'u_danil' },
+        { id: 'e1', title: 'Гостиница', amount: 9000, payer: 'u_artem', splitType: 0, share: [{ participantId: 'u_artem' }, { participantId: 'u_anya' }, { participantId: 'u_danil' }], createdBy: 'u_artem' },
+        { id: 'e2', title: 'Такси', amount: 1200, payer: 'u_anya', splitType: 0, share: [{ participantId: 'u_artem' }, { participantId: 'u_anya' }], createdBy: 'u_anya' },
+        { id: 'e3', title: 'Ужин', amount: 3600, payer: 'u_danil', splitType: 0, share: [{ participantId: 'u_artem' }, { participantId: 'u_anya' }, { participantId: 'u_danil' }], createdBy: 'u_danil' },
       ],
       events: [
         { id: 'pe1', title: 'Заселение в гостиницу', date: '2026-06-12', time: '14:00', endTime: '', createdBy: 'u_artem' },

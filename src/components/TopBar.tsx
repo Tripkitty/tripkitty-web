@@ -3,11 +3,12 @@ import { useMe, useStore } from '../hooks/useStore';
 import { disp } from '../lib/format';
 import { Avatar } from './Avatar';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import { NotificationToggle } from './NotificationToggle';
 
 // Постоянный верхний бар для всех залогиненных view.
 export function TopBar() {
   const me = useMe();
-  const { dispatch } = useStore();
+  const { logout: apiLogout } = useStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -28,8 +29,7 @@ export function TopBar() {
   const incomingCount = me.incoming.length;
 
   const logout = () => {
-    dispatch({ type: 'setSession', userId: null });
-    navigate('/auth');
+    apiLogout().finally(() => navigate('/auth'));
   };
 
   return (
@@ -54,6 +54,7 @@ export function TopBar() {
           </button>
         </div>
 
+        <NotificationToggle />
         <ThemeSwitcher />
       </div>
     </div>

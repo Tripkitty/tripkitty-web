@@ -3,6 +3,8 @@ import { useMe, useStore } from '../hooks/useStore';
 import { disp } from '../lib/format';
 import { HeaderBand } from '../components/HeaderBand';
 import { Avatar } from '../components/Avatar';
+import { friends as friendsApi } from '../api/api';
+import { ApiError } from '../api/http';
 
 export function FriendsPage() {
   const { db, dispatch } = useStore();
@@ -10,33 +12,43 @@ export function FriendsPage() {
 
   const [handle, setHandle] = useState('');
   const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const sendRequest = () => {
+  const sendRequest = async () => {
     const h = handle.trim().replace(/^@+/, '').toLowerCase();
     if (!h) return setMsg('Введи @логин друга');
-    const target = Object.values(db.users).find((u) => u.handle === h);
-    if (!target) return setMsg('Пользователь @' + h + ' не найден');
-    if (target.id === me.id) return setMsg('Это вы 🙂');
-    if (me.friends.includes(target.id)) return setMsg(disp(target.name) + ' уже у вас в друзьях');
-    if (me.outgoing.includes(target.id)) return setMsg('Запрос уже отправлен');
-    // Если друг уже отправил мне заявку — принимаем сразу.
-    if (me.incoming.includes(target.id)) {
-      dispatch({ type: 'acceptFriend', meId: me.id, fromId: target.id });
-      setMsg('Вы теперь друзья!');
+    if (h === me.handle) return setMsg('Это вы 🙂');
+
+    setBusy(true);
+    setMsg('');
+    try {
+      // Ищем пользователя на сервере, чтобы получить id.
+      const { user: found } = await friendsApi.searchByHandle(h);
+
+      if (me.friends.includes(found.id)) return setMsg(disp(found.name) + ' уже у вас в друзьях');
+
+      // Если есть входящая заявка — принимаем её.
+      if (me.incoming.includes(found.id)) {
+        await dispatch({ type: 'acceptFriend', meId: me.id, fromId: found.id });
+        setMsg('Вы теперь друзья!');
+      } else {
+        await dispatch({ type: 'friendRequest', fromId: me.id, toId: found.id });
+        setMsg('Запрос отправлен ' + disp(found.name) + '. Под его аккаунтом можно принять.');
+      }
       setHandle('');
-      return;
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'NOT_FOUND') setMsg('Пользователь @' + h + ' не найден');
+      else if (e instanceof ApiError) setMsg(e.message);
+      else setMsg('Ошибка отправки запроса');
+    } finally {
+      setBusy(false);
     }
-    dispatch({ type: 'friendRequest', fromId: me.id, toId: target.id });
-    setMsg('Запрос отправлен ' + disp(target.name) + '. Под его аккаунтом можно принять.');
-    setHandle('');
   };
 
-  const onKey = (e: KeyboardEvent) => {
-    if (e.key === 'Enter') sendRequest();
-  };
+  const onKey = (e: KeyboardEvent) => { if (e.key === 'Enter') sendRequest(); };
 
-  const friends = me.friends.map((id) => db.users[id]).filter(Boolean);
-  const incoming = me.incoming.map((id) => db.users[id]).filter(Boolean);
+  const friendUsers = me.friends.map((id) => db.users[id]).filter(Boolean);
+  const incomingUsers = me.incoming.map((id) => db.users[id]).filter(Boolean);
 
   return (
     <div className="view" style={{ maxWidth: 640 }}>
@@ -58,20 +70,18 @@ export function FriendsPage() {
                   onKeyDown={onKey}
                 />
               </div>
-              <button type="button" className="btn" onClick={sendRequest}>
-                Отправить
+              <button type="button" className="btn" onClick={sendRequest} disabled={busy}>
+                {busy ? '…' : 'Отправить'}
               </button>
             </div>
-            {msg && (
-              <div style={{ color: 'var(--accent)', fontSize: 13.5, fontWeight: 600 }}>{msg}</div>
-            )}
+            {msg && <div style={{ color: 'var(--accent)', fontSize: 13.5, fontWeight: 600 }}>{msg}</div>}
           </section>
 
           {/* Входящие заявки */}
-          {incoming.length > 0 && (
+          {incomingUsers.length > 0 && (
             <section className="friends-section">
               <label className="field-label">ЗАЯВКИ В ДРУЗЬЯ</label>
-              {incoming.map((u) => (
+              {incomingUsers.map((u) => (
                 <div key={u.id} className="friend-row">
                   <Avatar id={u.id} name={u.name} size={36} />
                   <div className="friend-meta">
@@ -79,18 +89,10 @@ export function FriendsPage() {
                     <span className="friend-handle">@{u.handle}</span>
                   </div>
                   <div className="row" style={{ gap: 10 }}>
-                    <button
-                      type="button"
-                      className="btn sm"
-                      onClick={() => dispatch({ type: 'acceptFriend', meId: me.id, fromId: u.id })}
-                    >
+                    <button type="button" className="btn sm" onClick={() => dispatch({ type: 'acceptFriend', meId: me.id, fromId: u.id })}>
                       Принять
                     </button>
-                    <button
-                      type="button"
-                      className="link danger"
-                      onClick={() => dispatch({ type: 'declineFriend', meId: me.id, fromId: u.id })}
-                    >
+                    <button type="button" className="link danger" onClick={() => dispatch({ type: 'declineFriend', meId: me.id, fromId: u.id })}>
                       Отклонить
                     </button>
                   </div>
@@ -102,21 +104,17 @@ export function FriendsPage() {
           {/* Мои друзья */}
           <section className="friends-section">
             <label className="field-label">МОИ ДРУЗЬЯ</label>
-            {friends.length === 0 ? (
+            {friendUsers.length === 0 ? (
               <div className="empty">Пока никого. Добавь друга по @логину выше ↑</div>
             ) : (
-              friends.map((u) => (
+              friendUsers.map((u) => (
                 <div key={u.id} className="friend-row">
                   <Avatar id={u.id} name={u.name} size={38} />
                   <div className="friend-meta">
                     <span className="friend-name">{disp(u.name)}</span>
                     <span className="friend-handle">@{u.handle}</span>
                   </div>
-                  <button
-                    type="button"
-                    className="link danger"
-                    onClick={() => dispatch({ type: 'removeFriend', meId: me.id, friendId: u.id })}
-                  >
+                  <button type="button" className="link danger" onClick={() => dispatch({ type: 'removeFriend', meId: me.id, friendId: u.id })}>
                     Удалить
                   </button>
                 </div>

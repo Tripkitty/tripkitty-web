@@ -1,16 +1,23 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useMe } from '../hooks/useStore';
+import { useMe, useStore } from '../hooks/useStore';
 import { TopBar } from './TopBar';
 
-// Каркас приложения: верхний бар + текущий view. Гард авторизации.
 export function AppLayout() {
+  const { loading } = useStore();
   const me = useMe();
   const location = useLocation();
   const isAuthRoute = location.pathname === '/auth';
 
-  // Не залогинен и не на /auth → на экран входа.
+  // Пока идёт инициализация — показываем пустой экран (не редиректим).
+  if (loading) {
+    return (
+      <div className="app-shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100dvh' }}>
+        <div style={{ color: 'var(--muted)', fontSize: 15 }}>Загрузка…</div>
+      </div>
+    );
+  }
+
   if (!me && !isAuthRoute) return <Navigate to="/auth" replace />;
-  // Залогинен, но на /auth → к списку поездок.
   if (me && isAuthRoute) return <Navigate to="/trips" replace />;
 
   return (

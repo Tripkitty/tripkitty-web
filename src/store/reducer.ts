@@ -25,8 +25,16 @@ export function reducer(state: State, action: Action): State {
 
     case 'friendRequest': {
       const users = { ...db.users };
-      users[action.fromId] = { ...users[action.fromId], outgoing: [...users[action.fromId].outgoing, action.toId] };
-      users[action.toId] = { ...users[action.toId], incoming: [...users[action.toId].incoming, action.fromId] };
+      const from = users[action.fromId];
+      if (from) {
+        users[action.fromId] = { ...from, outgoing: [...from.outgoing, action.toId] };
+      }
+      // action.toId может отсутствовать в локальном store — пропускаем.
+      // refreshSession() после вызова API синхронизирует обе стороны с сервером.
+      const to = users[action.toId];
+      if (to) {
+        users[action.toId] = { ...to, incoming: [...to.incoming, action.fromId] };
+      }
       return { ...state, db: { ...db, users } };
     }
 
@@ -110,7 +118,7 @@ export function reducer(state: State, action: Action): State {
             // Удаление участника убирает его из всех расходов; расходы с опустевшим share отбрасываются.
             expenses: t.expenses
               .filter((e) => e.payer !== pid)
-              .map((e) => ({ ...e, share: e.share.filter((x) => x !== pid) }))
+              .map((e) => ({ ...e, share: e.share.filter((s) => s.participantId !== pid) }))
               .filter((e) => e.share.length > 0),
           };
         }),

@@ -14,12 +14,22 @@ export type User = {
 
 export type Guest = { id: string; name: string }; // id 'g_' + random; без аккаунта
 
+// Способ разбивки расхода: 0 — поровну, 1 — по частям (weight), 2 — точные суммы (amount).
+export type SplitType = 0 | 1 | 2;
+
+export type ExpenseShare = {
+  participantId: string; // id участника (user или guest)
+  weight?: number; // доля при splitType 1 (ByShares)
+  amount?: number; // точная сумма при splitType 2 (ByAmounts)
+};
+
 export type Expense = {
   id: string;
   title: string;
   amount: number;
   payer: string; // id участника (user или guest)
-  share: string[]; // id участников, между которыми делится поровну
+  splitType: SplitType;
+  share: ExpenseShare[]; // участники, между которыми делится расход
   createdBy: string; // id пользователя
 };
 
@@ -39,6 +49,7 @@ export type Trip = {
   ownerId: string;
   start: string; // 'YYYY-MM-DD' или ''
   end: string; // 'YYYY-MM-DD' или ''
+  version?: number; // оптимистичная блокировка при PATCH /trips/{id}
   members: string[]; // id пользователей
   guests: Guest[];
   expenses: Expense[];
