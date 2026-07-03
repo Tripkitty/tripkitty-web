@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../../hooks/useStore';
+import { useToast } from '../../hooks/useToast';
 import { fmt } from '../../lib/format';
 import type { Expense, ExpenseShare, Participant, SplitType, Trip } from '../../types';
 
@@ -17,6 +18,7 @@ const SPLIT_LABELS: Record<SplitType, string> = {
 
 export function NewExpense({ trip, ps, idName }: Props) {
   const { sessionUserId, dispatch } = useStore();
+  const toast = useToast();
 
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
@@ -29,6 +31,10 @@ export function NewExpense({ trip, ps, idName }: Props) {
   // Веса (splitType 1) и точные суммы (splitType 2) по id участника; пустая строка = не задано.
   const [weights, setWeights] = useState<Record<string, string>>({});
   const [amounts, setAmounts] = useState<Record<string, string>>({});
+  // Невалидные поля: ключ 'amount' — общая сумма, id участника — его часть/сумма.
+  // Подсветка снимается при вводе в поле.
+  const [bad, setBad] = useState<Record<string, boolean>>({});
+  const clearBad = (k: string) => setBad((b) => (b[k] ? { ...b, [k]: false } : b));
 
   // Эффективный плательщик: выбранный, если он ещё в составе, иначе первый участник.
   const effPayer = ps.some((p) => p.id === payer) ? payer : ps[0] ? ps[0].id : '';
@@ -43,19 +49,35 @@ export function NewExpense({ trip, ps, idName }: Props) {
   const rest = Math.round(((amt || 0) - enteredSum) * 100) / 100;
 
   const add = () => {
-    if (!amt || amt <= 0) return alert('Укажи сумму больше нуля');
-    if (!sel.length) return alert('Выбери, между кем делим');
-    if (!effPayer) return alert('Добавь хотя бы одного участника');
+    const t = title.trim();
+    if (!t) {
+      setBad({ title: true });
+      return toast.error('Напиши, на что потратили');
+    }
+    if (!amt || amt <= 0) {
+      setBad({ amount: true });
+      return toast.error('Укажи сумму больше нуля');
+    }
+    if (!sel.length) return toast.error('Выбери, между кем делим');
+    if (!effPayer) return toast.error('Добавь хотя бы одного участника');
 
     let share: ExpenseShare[];
     if (splitType === 1) {
       share = sel.map((p) => ({ participantId: p.id, weight: parseFloat(weights[p.id] ?? '') || 1 }));
-      if (share.some((s) => (s.weight as number) <= 0)) return alert('Части должны быть больше нуля');
+      const badIds = share.filter((s) => (s.weight as number) <= 0).map((s) => s.participantId);
+      if (badIds.length) {
+        setBad(Object.fromEntries(badIds.map((id) => [id, true])));
+        return toast.error('Части должны быть больше нуля');
+      }
     } else if (splitType === 2) {
       share = sel.map((p) => ({ participantId: p.id, amount: parseFloat(amounts[p.id] ?? '') || 0 }));
-      if (share.some((s) => (s.amount as number) <= 0)) return alert('Укажи сумму каждого участника');
+      const badIds = share.filter((s) => (s.amount as number) <= 0).map((s) => s.participantId);
+      if (badIds.length) {
+        setBad(Object.fromEntries(badIds.map((id) => [id, true])));
+        return toast.error('Укажи сумму каждого участника');
+      }
       if (Math.abs(rest) > 0.01) {
-        return alert(
+        return toast.error(
           rest > 0
             ? 'Осталось распределить ' + fmt(rest, trip.cur)
             : 'Распределено больше общей суммы на ' + fmt(-rest, trip.cur),
@@ -67,7 +89,7 @@ export function NewExpense({ trip, ps, idName }: Props) {
 
     const exp: Expense = {
       id: '', // id придёт от сервера через dispatch
-      title: title.trim() || 'Расход',
+      title: t,
       amount: amt,
       payer: effPayer,
       splitType,
@@ -81,6 +103,7 @@ export function NewExpense({ trip, ps, idName }: Props) {
     setOff({}); // делёж снова на всех
     setWeights({});
     setAmounts({});
+    setBad({});
   };
 
   return (
@@ -88,20 +111,20 @@ export function NewExpense({ trip, ps, idName }: Props) {
       <label className="field-label">НОВЫЙ РАСХОД</label>
 
       <input
-        className="input"
+        className={'input' + (bad.title ? ' invalid' : '')}
         placeholder="На что потратили (отель, такси…)"
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        onChange={(e) => { setTitle(e.target.value); clearBad('title'); }}
       />
 
       <div className="row">
         <input
-          className="input mono"
+          className={'input mono' + (bad.amount ? ' invalid' : '')}
           style={{ flex: 1, minWidth: 120 }}
           type="number"
           placeholder="Сумма"
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={(e) => { setAmount(e.target.value); clearBad('amount'); }}
         />
         <select
           className="input"
@@ -165,13 +188,13 @@ export function NewExpense({ trip, ps, idName }: Props) {
               <div key={p.id} className="split-row">
                 <span className="split-name">{idName[p.id]}</span>
                 <input
-                  className="input mono split-input"
+                  className={'input mono split-input' + (bad[p.id] ? ' invalid' : '')}
                   type="number"
                   min="0"
                   step="1"
                   placeholder="1"
                   value={weights[p.id] ?? ''}
-                  onChange={(e) => setWeights((w) => ({ ...w, [p.id]: e.target.value }))}
+                  onChange={(e) => { setWeights((w) => ({ ...w, [p.id]: e.target.value })); clearBad(p.id); }}
                 />
               </div>
             ))}
@@ -189,13 +212,13 @@ export function NewExpense({ trip, ps, idName }: Props) {
               <div key={p.id} className="split-row">
                 <span className="split-name">{idName[p.id]}</span>
                 <input
-                  className="input mono split-input"
+                  className={'input mono split-input' + (bad[p.id] ? ' invalid' : '')}
                   type="number"
                   min="0"
                   step="0.01"
                   placeholder="0"
                   value={amounts[p.id] ?? ''}
-                  onChange={(e) => setAmounts((a) => ({ ...a, [p.id]: e.target.value }))}
+                  onChange={(e) => { setAmounts((a) => ({ ...a, [p.id]: e.target.value })); clearBad(p.id); }}
                 />
               </div>
             ))}

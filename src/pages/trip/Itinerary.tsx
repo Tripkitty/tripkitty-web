@@ -1,21 +1,33 @@
 import { useMemo, useState, type KeyboardEvent } from 'react';
 import { useStore } from '../../hooks/useStore';
+import { useToast } from '../../hooks/useToast';
 import { disp, fmtDayLong } from '../../lib/format';
 import { trips as tripsApi } from '../../api/api';
 import type { Trip, TripEvent } from '../../types';
 
 export function Itinerary({ trip, isOwner }: { trip: Trip; isOwner: boolean }) {
   const { db, sessionUserId, dispatch } = useStore();
+  const toast = useToast();
 
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(trip.start || '');
   const [time, setTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  // Невалидные поля (подсветка снимается при вводе) и блокировка кнопок календаря на время запроса.
+  const [bad, setBad] = useState<Record<string, boolean>>({});
+  const [calBusy, setCalBusy] = useState(false);
+  const clearBad = (k: string) => setBad((b) => (b[k] ? { ...b, [k]: false } : b));
 
   const add = () => {
     const t = title.trim();
-    if (!date) return alert('Укажи дату события');
-    if (!t) return alert('Назови событие');
+    if (!date) {
+      setBad({ date: true });
+      return toast.error('Укажи дату события');
+    }
+    if (!t) {
+      setBad({ title: true });
+      return toast.error('Назови событие');
+    }
     let end = endTime;
     if (end && !time) end = ''; // конец игнорируется без начала
     // id придёт от сервера через dispatch; placeholder для TypeScript.
@@ -65,14 +77,18 @@ export function Itinerary({ trip, isOwner }: { trip: Trip; isOwner: boolean }) {
               type="button"
               className="btn sm"
               style={{ background: 'var(--accent)', color: '#fff' }}
+              disabled={calBusy}
               onClick={async () => {
+                setCalBusy(true);
                 try {
                   const { url } = await tripsApi.getCalendarUrl(trip.id);
                   // location.href вместо window.open: Safari блокирует window.open после await,
                   // а переход по webcal:// не выгружает страницу.
                   window.location.href = url;
                 } catch {
-                  alert('Не удалось получить ссылку на календарь');
+                  toast.error('Не удалось получить ссылку на календарь');
+                } finally {
+                  setCalBusy(false);
                 }
               }}
             >
@@ -81,7 +97,9 @@ export function Itinerary({ trip, isOwner }: { trip: Trip; isOwner: boolean }) {
             <button
               type="button"
               className="btn sm"
+              disabled={calBusy}
               onClick={async () => {
+                setCalBusy(true);
                 try {
                   const blob = await tripsApi.getCalendarIcs(trip.id);
                   const url = URL.createObjectURL(blob);
@@ -91,7 +109,9 @@ export function Itinerary({ trip, isOwner }: { trip: Trip; isOwner: boolean }) {
                   a.click();
                   URL.revokeObjectURL(url);
                 } catch {
-                  alert('Не удалось получить файл календаря');
+                  toast.error('Не удалось получить файл календаря');
+                } finally {
+                  setCalBusy(false);
                 }
               }}
             >
@@ -105,19 +125,19 @@ export function Itinerary({ trip, isOwner }: { trip: Trip; isOwner: boolean }) {
       <div className="add-box">
         <div className="row">
           <input
-            className="input"
+            className={'input' + (bad.title ? ' invalid' : '')}
             style={{ flex: 2, minWidth: 160 }}
             placeholder="Музей, ужин, выезд…"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => { setTitle(e.target.value); clearBad('title'); }}
             onKeyDown={onTitleKey}
           />
           <input
-            className="input"
+            className={'input' + (bad.date ? ' invalid' : '')}
             style={{ flex: 1, minWidth: 130 }}
             type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(e) => { setDate(e.target.value); clearBad('date'); }}
           />
           <div className="time-range">
             <input className="input mono" type="time" lang="ru" value={time} onChange={(e) => setTime(e.target.value)} />

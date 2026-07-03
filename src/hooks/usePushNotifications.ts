@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { push } from '../api/api';
+import { useToast } from './useToast';
 
 type PermissionState = 'default' | 'granted' | 'denied';
 
@@ -11,6 +12,7 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
 }
 
 export function usePushNotifications() {
+  const toast = useToast();
   const [permission, setPermission] = useState<PermissionState>(
     () => (typeof Notification !== 'undefined' ? Notification.permission : 'denied')
   );
@@ -47,7 +49,8 @@ export function usePushNotifications() {
       await push.subscribe(sub.endpoint, keys.p256dh, keys.auth);
       setSubscribed(true);
     } catch {
-      alert('Не удалось подключить уведомления. Попробуй позже.');
+      // Ошибку показываем явно — иначе колокольчик молча остаётся неактивным (см. CLAUDE.md).
+      toast.error('Не удалось подключить уведомления. Попробуй позже.');
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,6 @@
 import { useState, type KeyboardEvent } from 'react';
 import { useStore } from '../../hooks/useStore';
+import { useToast } from '../../hooks/useToast';
 import { disp } from '../../lib/format';
 import { Avatar } from '../../components/Avatar';
 import type { Participant, Trip, User } from '../../types';
@@ -13,7 +14,9 @@ type Props = {
 
 export function Participants({ trip, ps, idSub, me }: Props) {
   const { db, dispatch } = useStore();
+  const toast = useToast();
   const [guestName, setGuestName] = useState('');
+  const [guestBad, setGuestBad] = useState(false);
 
   // Тег участника: @handle / гость[ N] + роли «вы» / «создатель».
   const tagFor = (p: Participant): string => {
@@ -31,7 +34,11 @@ export function Participants({ trip, ps, idSub, me }: Props) {
 
   const addGuest = () => {
     const name = guestName.trim();
-    if (!name) return;
+    if (!name) {
+      // Раньше пустое имя игнорировалось молча — кнопка выглядела неработающей.
+      setGuestBad(true);
+      return toast.error('Введи имя гостя');
+    }
     // id придёт от сервера через dispatch в StoreContext
     dispatch({ type: 'addGuest', tripId: trip.id, id: '', name });
     setGuestName('');
@@ -95,11 +102,11 @@ export function Participants({ trip, ps, idSub, me }: Props) {
 
         <div className="row">
           <input
-            className="input"
+            className={'input' + (guestBad ? ' invalid' : '')}
             style={{ flex: 1 }}
             placeholder="…или гость без аккаунта"
             value={guestName}
-            onChange={(e) => setGuestName(e.target.value)}
+            onChange={(e) => { setGuestName(e.target.value); setGuestBad(false); }}
             onKeyDown={onGuestKey}
           />
           <button type="button" className="btn chip-on sm" onClick={addGuest}>
