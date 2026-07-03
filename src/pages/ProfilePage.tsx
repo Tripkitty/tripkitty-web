@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMe, useStore } from '../hooks/useStore';
+import { useToast } from '../hooks/useToast';
 import { disp } from '../lib/format';
 import { HeaderBand } from '../components/HeaderBand';
 import { Avatar } from '../components/Avatar';
@@ -12,9 +13,10 @@ export function ProfilePage() {
   const { db, dispatch, logout: apiLogout } = useStore();
   const me = useMe()!;
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [handle, setHandle] = useState('');
-  const [msg, setMsg] = useState('');
+  const [handleBad, setHandleBad] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const logout = () => {
@@ -23,30 +25,32 @@ export function ProfilePage() {
 
   const sendRequest = async () => {
     const h = handle.trim().replace(/^@+/, '').toLowerCase();
-    if (!h) return setMsg('Введи @логин друга');
-    if (h === me.handle) return setMsg('Это вы 🙂');
+    if (!h) {
+      setHandleBad(true);
+      return toast.error('Введи @логин друга');
+    }
+    if (h === me.handle) return toast.info('Это вы 🙂');
 
     setBusy(true);
-    setMsg('');
     try {
       // Ищем пользователя на сервере, чтобы получить id.
       const { user: found } = await friendsApi.searchByHandle(h);
 
-      if (me.friends.includes(found.id)) return setMsg(disp(found.name) + ' уже у вас в друзьях');
+      if (me.friends.includes(found.id)) return toast.info(disp(found.name) + ' уже у вас в друзьях');
 
       // Если есть входящая заявка — принимаем её.
       if (me.incoming.includes(found.id)) {
         await dispatch({ type: 'acceptFriend', meId: me.id, fromId: found.id });
-        setMsg('Вы теперь друзья!');
+        toast.success('Вы теперь друзья!');
       } else {
         await dispatch({ type: 'friendRequest', fromId: me.id, toId: found.id });
-        setMsg('Запрос отправлен ' + disp(found.name) + '. Под его аккаунтом можно принять.');
+        toast.success('Запрос отправлен ' + disp(found.name) + '. Под его аккаунтом можно принять.');
       }
       setHandle('');
     } catch (e) {
-      if (e instanceof ApiError && e.code === 'NOT_FOUND') setMsg('Пользователь @' + h + ' не найден');
-      else if (e instanceof ApiError) setMsg(e.message);
-      else setMsg('Ошибка отправки запроса');
+      if (e instanceof ApiError && e.code === 'NOT_FOUND') toast.error('Пользователь @' + h + ' не найден');
+      else if (e instanceof ApiError) toast.error(e.message);
+      else toast.error('Ошибка отправки запроса');
     } finally {
       setBusy(false);
     }
@@ -93,10 +97,10 @@ export function ProfilePage() {
               <div className="handle-wrap" style={{ flex: 1 }}>
                 <span className="at">@</span>
                 <input
-                  className="input"
+                  className={'input' + (handleBad ? ' invalid' : '')}
                   placeholder="логин друга"
                   value={handle}
-                  onChange={(e) => setHandle(e.target.value)}
+                  onChange={(e) => { setHandle(e.target.value); setHandleBad(false); }}
                   onKeyDown={onKey}
                 />
               </div>
@@ -104,7 +108,6 @@ export function ProfilePage() {
                 {busy ? '…' : 'Отправить'}
               </button>
             </div>
-            {msg && <div style={{ color: 'var(--accent)', fontSize: 13.5, fontWeight: 600 }}>{msg}</div>}
           </section>
 
           {/* Входящие заявки */}

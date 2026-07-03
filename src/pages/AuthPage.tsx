@@ -16,9 +16,21 @@ export function AuthPage() {
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
+  // nonce перемонтирует баннер через key → shake-анимация проигрывается заново,
+  // даже когда текст ошибки не изменился (видно, что кнопка отработала).
+  const [errNonce, setErrNonce] = useState(0);
+  // Невалидные поля (подсветка рамкой); флаг снимается при вводе в поле.
+  const [bad, setBad] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
 
   const isRegister = mode === 'register';
+
+  const showErr = (msg: string, fields: Record<string, boolean> = {}) => {
+    setErr(msg);
+    setErrNonce((n) => n + 1);
+    setBad(fields);
+  };
+  const clearBad = (k: string) => setBad((b) => (b[k] ? { ...b, [k]: false } : b));
 
   const enter = async (loginEmail: string, password: string) => {
     setBusy(true);
@@ -29,7 +41,11 @@ export function AuthPage() {
       await refreshSession();
       navigate('/trips');
     } catch (e) {
-      setErr(e instanceof ApiError ? e.message : 'Ошибка входа');
+      if (e instanceof ApiError) {
+        showErr(e.message, { email: e.field === 'email', pass: e.field === 'password' });
+      } else {
+        showErr('Ошибка входа');
+      }
     } finally {
       setBusy(false);
     }
@@ -37,7 +53,11 @@ export function AuthPage() {
 
   const login = () => {
     const e = email.trim().toLowerCase();
-    if (!e || !pass) return setErr('Заполни почту и пароль');
+    if (!e || !pass) return showErr('Заполни почту и пароль', { email: !e, pass: !pass });
+    if (!/^\S+@\S+\.\S+$/.test(e)) return showErr('Похоже, почта неверная', { email: true });
+    // Регистрация всегда требовала ≥ 8 символов, поэтому короткий пароль заведомо неверен —
+    // говорим сразу, без запроса к серверу.
+    if (pass.length < 8) return showErr('Пароль минимум 8 символов', { pass: true });
     enter(e, pass);
   };
 
@@ -45,10 +65,10 @@ export function AuthPage() {
     const n = name.trim();
     const h = handle.trim().replace(/^@+/, '').toLowerCase();
     const e = email.trim().toLowerCase();
-    if (!n || !h || !e || !pass) return setErr('Заполни все поля');
-    if (!/^[a-z0-9_]{3,20}$/.test(h)) return setErr('Логин: 3–20 символов — латиница, цифры, _');
-    if (!/^\S+@\S+\.\S+$/.test(e)) return setErr('Похоже, почта неверная');
-    if (pass.length < 8) return setErr('Пароль минимум 8 символов');
+    if (!n || !h || !e || !pass) return showErr('Заполни все поля', { name: !n, handle: !h, email: !e, pass: !pass });
+    if (!/^[a-z0-9_]{3,20}$/.test(h)) return showErr('Логин: 3–20 символов — латиница, цифры, _', { handle: true });
+    if (!/^\S+@\S+\.\S+$/.test(e)) return showErr('Похоже, почта неверная', { email: true });
+    if (pass.length < 8) return showErr('Пароль минимум 8 символов', { pass: true });
 
     setBusy(true);
     setErr('');
@@ -58,7 +78,7 @@ export function AuthPage() {
       await refreshSession();
       navigate('/trips');
     } catch (ex) {
-      setErr(ex instanceof ApiError ? ex.message : 'Ошибка регистрации');
+      showErr(ex instanceof ApiError ? ex.message : 'Ошибка регистрации');
     } finally {
       setBusy(false);
     }
@@ -66,7 +86,7 @@ export function AuthPage() {
 
   const submit = () => (isRegister ? register() : login());
   const onKey = (e: KeyboardEvent) => { if (e.key === 'Enter') submit(); };
-  const toggle = () => { setMode(isRegister ? 'login' : 'register'); setErr(''); };
+  const toggle = () => { setMode(isRegister ? 'login' : 'register'); setErr(''); setBad({}); };
 
   return (
     <div className="view">
@@ -76,7 +96,7 @@ export function AuthPage() {
         <div className="auth-body">
           {isRegister && (
             <div className="field-group">
-              <input className="input" placeholder="Имя или ФИО" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={onKey} />
+              <input className={'input' + (bad.name ? ' invalid' : '')} placeholder="Имя или ФИО" value={name} onChange={(e) => { setName(e.target.value); clearBad('name'); }} onKeyDown={onKey} />
               <div className="hint">Можно полностью — остальным показываем только имя</div>
             </div>
           )}
@@ -85,24 +105,27 @@ export function AuthPage() {
             <div className="field-group">
               <div className="handle-wrap">
                 <span className="at">@</span>
-                <input className="input" placeholder="login" value={handle} onChange={(e) => setHandle(e.target.value)} onKeyDown={onKey} />
+                <input className={'input' + (bad.handle ? ' invalid' : '')} placeholder="login" value={handle} onChange={(e) => { setHandle(e.target.value); clearBad('handle'); }} onKeyDown={onKey} />
               </div>
               <div className="hint">Уникальный — по нему тебя найдут друзья</div>
             </div>
           )}
 
-          <input className="input" type="email" placeholder="Почта" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={onKey} />
-          <input className="input" type="password" placeholder="Пароль" value={pass} onChange={(e) => setPass(e.target.value)} onKeyDown={onKey} />
+          <input className={'input' + (bad.email ? ' invalid' : '')} type="email" placeholder="Почта" value={email} onChange={(e) => { setEmail(e.target.value); clearBad('email'); }} onKeyDown={onKey} />
+          <input className={'input' + (bad.pass ? ' invalid' : '')} type="password" placeholder="Пароль" value={pass} onChange={(e) => { setPass(e.target.value); clearBad('pass'); }} onKeyDown={onKey} />
 
-          {err && <div className="error-banner">{err}</div>}
+          {err && <div key={errNonce} className="error-banner">{err}</div>}
 
           <button type="button" className="btn" onClick={submit} disabled={busy}>
             {busy ? 'Подождите…' : isRegister ? 'Создать аккаунт' : 'Войти'}
           </button>
 
-          <button type="button" className="link" style={{ alignSelf: 'center' }} onClick={toggle}>
-            {isRegister ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться'}
-          </button>
+          <div className="auth-switch">
+            {isRegister ? 'Уже есть аккаунт?' : 'Нет аккаунта?'}{' '}
+            <button type="button" className="link accent auth-switch-link" onClick={toggle}>
+              {isRegister ? 'Войти' : 'Зарегистрироваться'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -291,6 +291,11 @@ input[type="time"].input {
 .handle-wrap:focus-within {
   border-color: var(--accent);
 }
+/* Рамку рисует обёртка, а .invalid ставится на внутренний инпут — поднимаем подсветку сюда */
+.handle-wrap:has(.input.invalid) {
+  border-color: var(--err);
+  background: color-mix(in srgb, var(--err) 7%, var(--field));
+}
 .handle-wrap .at {
   padding: 0 4px 0 16px;
   font-size: 16px;
@@ -345,12 +350,29 @@ input[type="time"].input {
   color: var(--neg);
 }
 .error-banner {
-  color: var(--neg);
-  background: color-mix(in srgb, var(--neg) 14%, transparent);
+  color: var(--err-tx);
+  background: var(--err);
   border-radius: 11px;
   padding: 12px 14px;
   font-size: 13.5px;
   font-weight: 600;
+  /* Перезапускается через key={nonce} на элементе — «встряска» при каждой новой попытке */
+  animation: banner-shake 0.4s ease-out;
+}
+@keyframes banner-shake {
+  0%, 100% { transform: none; }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+.input.invalid {
+  border-color: var(--err);
+  background: color-mix(in srgb, var(--err) 7%, var(--field));
+}
+.btn:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 /* Чип-тоггл (делёж расхода) */
@@ -424,6 +446,22 @@ input[type="time"].input {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+/* Переключатель вход/регистрация: кликабельна только ссылка, не вся строка */
+.auth-switch {
+  align-self: center;
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.auth-switch-link {
+  padding: 0;
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.auth-switch-link:hover {
+  color: color-mix(in srgb, var(--accent) 80%, var(--text));
 }
 .demo-card {
   border: 1.5px dashed var(--line);
@@ -1112,6 +1150,60 @@ button.participant-chip:hover {
 .switch:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ===== Тост-уведомления ===== */
+.toast-stack {
+  position: fixed;
+  left: 50%;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 1000;
+  width: min(420px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  max-width: 100%;
+  padding: 12px 18px;
+  border-radius: 13px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  animation: toast-in 0.22s ease-out;
+  transition: opacity 0.25s, transform 0.25s;
+}
+.toast.leaving {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.toast.error {
+  background: var(--err);
+  color: var(--err-tx);
+}
+.toast.success {
+  background: var(--ok);
+  color: var(--ok-tx);
+}
+.toast.info {
+  background: var(--inf);
+  color: var(--inf-tx);
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* ===== Мобильная адаптация списков (в конце файла — правила выше не должны

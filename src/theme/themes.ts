@@ -2,6 +2,7 @@ import type { ThemeName } from '../types';
 
 // Наборы токенов тем (Classic / Warm / Night). Значения из README → Design Tokens.
 // Применяются как CSS-переменные --<token> на корневом <html>.
+// err/ok/inf (+ *-tx) — фоны/текст тост-уведомлений; в README их нет, подобраны под фон каждой темы.
 export type ThemeTokens = Record<string, string>;
 
 export const THEMES: Record<ThemeName, ThemeTokens> = {
@@ -11,6 +12,8 @@ export const THEMES: Record<ThemeName, ThemeTokens> = {
     text: '#2a2a28', muted: '#9a907a', line: '#d3c4a0', btn: '#1e2c44',
     'btn-tx': '#f4ecd8', pos: '#2f7d5b', neg: '#b4533a', accent: '#c8862f',
     chip: '#f2ead4', 'chip-tx': '#5b5340', 'chip-on': '#1e2c44', 'chip-on-tx': '#f4ecd8',
+    err: '#a8492f', 'err-tx': '#f8ede2', ok: '#2f7d5b', 'ok-tx': '#ebf5f0',
+    inf: '#1e2c44', 'inf-tx': '#f3ead6',
   },
   warm: {
     page: '#e7d8c8', card: '#f7ece0', field: '#f1e4d4', 'field-bd': '#dcc6b1',
@@ -18,6 +21,8 @@ export const THEMES: Record<ThemeName, ThemeTokens> = {
     text: '#352c27', muted: '#a08c7e', line: '#ddc9b6', btn: '#cf6a43',
     'btn-tx': '#fff6ef', pos: '#4f7d4a', neg: '#c2543a', accent: '#cf6a43',
     chip: '#f1e4d4', 'chip-tx': '#5e4a3e', 'chip-on': '#48302a', 'chip-on-tx': '#f3e3d4',
+    err: '#b34a31', 'err-tx': '#fff3ec', ok: '#4f7d4a', 'ok-tx': '#f0f6ee',
+    inf: '#48302a', 'inf-tx': '#f3e3d4',
   },
   night: {
     page: '#0e151e', card: '#19232f', field: '#212e3c', 'field-bd': '#33414f',
@@ -25,6 +30,8 @@ export const THEMES: Record<ThemeName, ThemeTokens> = {
     text: '#e3ddcf', muted: '#8a95a1', line: '#32404e', btn: '#f0a93c',
     'btn-tx': '#16212c', pos: '#5cc08e', neg: '#e3795c', accent: '#f0a93c',
     chip: '#212e3c', 'chip-tx': '#c3cdd7', 'chip-on': '#f0a93c', 'chip-on-tx': '#16212c',
+    err: '#b0533a', 'err-tx': '#ffece5', ok: '#31795a', 'ok-tx': '#e3f4eb',
+    inf: '#33414f', 'inf-tx': '#f0e6d2',
   },
 };
 

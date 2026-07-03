@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMe, useStore } from '../hooks/useStore';
+import { useToast } from '../hooks/useToast';
 import { fmt, fmtDate, initial, plural } from '../lib/format';
 import { userColor } from '../lib/avatar';
 import { tripParticipants } from '../lib/participants';
@@ -19,14 +20,21 @@ export function TripsListPage() {
   const { db, sessionUserId, dispatch } = useStore();
   const me = useMe()!;
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [name, setName] = useState('');
   const [cur, setCur] = useState('₽');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [busy, setBusy] = useState(false);
+  const [nameBad, setNameBad] = useState(false);
 
   const createTrip = async () => {
+    const n = name.trim();
+    if (!n) {
+      setNameBad(true);
+      return toast.error('Назови поездку');
+    }
     setBusy(true);
     try {
       // Передаём заглушку-объект; dispatch в StoreContext вызовет API и получит настоящий id.
@@ -34,7 +42,7 @@ export function TripsListPage() {
         type: 'createTrip',
         trip: {
           id: '',
-          name: name.trim() || 'Без названия',
+          name: n,
           cur,
           ownerId: me.id,
           start,
@@ -49,6 +57,8 @@ export function TripsListPage() {
       setStart('');
       setEnd('');
       navigate('/trips');
+    } catch {
+      toast.error('Не удалось создать поездку. Попробуй ещё раз.');
     } finally {
       setBusy(false);
     }
@@ -64,10 +74,10 @@ export function TripsListPage() {
         <HeaderBand eyebrow="НОВАЯ ПОЕЗДКА" title="Куда едем?" />
         <div className="create-body">
           <input
-            className="input"
+            className={'input' + (nameBad ? ' invalid' : '')}
             placeholder="Напр. Поездка в Казань"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => { setName(e.target.value); setNameBad(false); }}
             onKeyDown={onNameKey}
           />
           <div className="row">
