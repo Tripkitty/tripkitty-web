@@ -49,6 +49,11 @@ export function NewExpense({ trip, ps, idName }: Props) {
   const rest = Math.round(((amt || 0) - enteredSum) * 100) / 100;
 
   const add = () => {
+    const t = title.trim();
+    if (!t) {
+      setBad({ title: true });
+      return toast.error('Напиши, на что потратили');
+    }
     if (!amt || amt <= 0) {
       setBad({ amount: true });
       return toast.error('Укажи сумму больше нуля');
@@ -84,7 +89,7 @@ export function NewExpense({ trip, ps, idName }: Props) {
 
     const exp: Expense = {
       id: '', // id придёт от сервера через dispatch
-      title: title.trim() || 'Расход',
+      title: t,
       amount: amt,
       payer: effPayer,
       splitType,
@@ -106,10 +111,10 @@ export function NewExpense({ trip, ps, idName }: Props) {
       <label className="field-label">НОВЫЙ РАСХОД</label>
 
       <input
-        className="input"
+        className={'input' + (bad.title ? ' invalid' : '')}
         placeholder="На что потратили (отель, такси…)"
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        onChange={(e) => { setTitle(e.target.value); clearBad('title'); }}
       />
 
       <div className="row">

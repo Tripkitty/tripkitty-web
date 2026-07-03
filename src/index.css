@@ -262,6 +262,21 @@ input[type="time"].input {
   padding-right: 48px;
   /* iOS: с appearance:none внутреннее значение схлопывается до фокуса — фиксируем высоту */
   min-height: 52px;
+  /* контейнер для растянутого ::-webkit-calendar-picker-indicator ниже */
+  position: relative;
+}
+/* Десктопный Chromium рисует нативную иконку календаря/часов поверх нашей SVG.
+   Прячем её, но растягиваем на всё поле: клик в любом месте открывает пикер */
+input[type="date"].input::-webkit-calendar-picker-indicator,
+input[type="time"].input::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
 }
 /* iOS: без min-height внутренний блок значения имеет нулевую высоту, пока поле не в фокусе;
    заодно выравниваем текст влево (iOS центрирует по умолчанию) */
