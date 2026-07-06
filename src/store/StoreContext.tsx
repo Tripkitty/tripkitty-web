@@ -3,7 +3,7 @@ import * as api from '../api/api';
 import { connectHub, disconnectHub, onHubEvent } from '../api/signalr';
 import { refreshOnce } from '../api/http';
 import { clearTokens, getRefreshToken } from '../api/tokens';
-import { mapApiExpense, mapApiGuest, mapApiTripDetail, mapApiUser, mapFriendDto, curToCode } from '../api/mappers';
+import { mapApiGuest, mapApiTripDetail, mapApiUser, mapFriendDto, curToCode } from '../api/mappers';
 import { reducer, type State } from './reducer';
 import type { Action } from './actions';
 import type { DB, Trip, User } from '../types';
@@ -195,7 +195,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               type: 'externalDB',
               db: {
                 ...cur.db,
-                users: { ...cur.db.users, ...users },
+                users: mergeUsers(cur.db.users, users),
                 trips: cur.db.trips.map((t) => (t.id === dt.id ? dt : t)),
               },
             });
@@ -482,7 +482,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // ── Расходы ────────────────────────────────────────────────────────────
 
       case 'addExpense': {
-        const { expense: e } = await api.trips.addExpense(
+        await api.trips.addExpense(
           action.tripId,
           action.expense.title,
           action.expense.amount,
@@ -490,7 +490,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           action.expense.splitType,
           action.expense.share,
         );
-        _dispatch({ type: 'addExpense', tripId: action.tripId, expense: mapApiExpense(e) });
+        const { trip: freshE } = await api.trips.get(action.tripId);
+        const { trip: dtE, users: usersE } = mapApiTripDetail(freshE);
+        const curE = stateRef.current;
+        _dispatch({
+          type: 'externalDB',
+          db: {
+            ...curE.db,
+            users: mergeUsers(curE.db.users, usersE),
+            trips: curE.db.trips.map((t) => (t.id === dtE.id ? dtE : t)),
+          },
+        });
         return;
       }
 
@@ -503,17 +513,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // ── События программы ──────────────────────────────────────────────────
 
       case 'addEvent': {
-        const { event: ev } = await api.trips.addEvent(
+        await api.trips.addEvent(
           action.tripId,
           action.event.title,
           action.event.date,
           action.event.time || null,
           action.event.endTime || null,
         );
+        const { trip: freshEv } = await api.trips.get(action.tripId);
+        const { trip: dtEv, users: usersEv } = mapApiTripDetail(freshEv);
+        const curEv = stateRef.current;
         _dispatch({
-          type: 'addEvent',
-          tripId: action.tripId,
-          event: { id: ev.id, title: ev.title, date: ev.date, time: ev.time ?? '', endTime: ev.endTime ?? '', createdBy: ev.createdBy },
+          type: 'externalDB',
+          db: {
+            ...curEv.db,
+            users: mergeUsers(curEv.db.users, usersEv),
+            trips: curEv.db.trips.map((t) => (t.id === dtEv.id ? dtEv : t)),
+          },
         });
         return;
       }
