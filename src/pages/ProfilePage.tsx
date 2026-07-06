@@ -61,6 +61,9 @@ export function ProfilePage() {
   const friendUsers = me.friends.map((id) => db.users[id]).filter(Boolean);
   const incomingUsers = me.incoming.map((id) => db.users[id]).filter(Boolean);
 
+  // Полное ФИО одной строкой; фолбэк на серверное name для старых записей без раздельных полей.
+  const fullFio = [me.lastName, me.firstName, me.middleName].filter(Boolean).join(' ') || me.name;
+
   return (
     <div className="view profile-view">
       {/* Карточка профиля */}
@@ -79,7 +82,7 @@ export function ProfilePage() {
           </div>
 
           <div className="profile-fields">
-            <ProfileField label="ФИО" value={me.name} />
+            <ProfileField label="ФИО" value={fullFio} />
             <ProfileField label="Логин" value={'@' + me.handle} />
             <ProfileField label="Почта" value={me.email || '—'} />
           </div>

@@ -3,7 +3,15 @@ import { http } from './http';
 
 // ─── Типы ответов API ────────────────────────────────────────────────────────
 
-export type ApiUser = { id: string; name: string; handle: string; email: string };
+export type ApiUser = {
+  id: string;
+  name: string; // вычисляемое сервером «Имя Фамилия»
+  lastName: string;
+  firstName: string;
+  middleName: string | null;
+  handle: string;
+  email: string;
+};
 export type ApiTokens = { accessToken: string; refreshToken: string };
 
 export type ApiTripSummary = {
@@ -41,7 +49,13 @@ export type ApiTripEvent = {
   createdBy: string;
 };
 
-export type ApiGuest = { id: string; name: string };
+export type ApiGuest = {
+  id: string;
+  name: string; // вычисляемое сервером «Имя Фамилия»
+  lastName: string;
+  firstName: string;
+  middleName: string | null;
+};
 
 export type ApiTripDetail = ApiTripSummary & {
   members: ApiUser[];
@@ -50,7 +64,15 @@ export type ApiTripDetail = ApiTripSummary & {
   events: ApiTripEvent[];
 };
 
-export type ApiFriendDto = { id: string; name: string; handle: string; email?: string };
+export type ApiFriendDto = {
+  id: string;
+  name: string;
+  lastName?: string | null;
+  firstName?: string | null;
+  middleName?: string | null;
+  handle: string;
+  email?: string;
+};
 
 export type ApiSettlements = {
   balances: Record<string, number>;
@@ -60,8 +82,14 @@ export type ApiSettlements = {
 // ─── Аутентификация ──────────────────────────────────────────────────────────
 
 export const auth = {
-  register: (name: string, handle: string, email: string, password: string) =>
-    http.post<{ user: ApiUser; tokens: ApiTokens }>('/auth/register', { name, handle, email, password }),
+  register: (body: {
+    lastName: string;
+    firstName: string;
+    middleName: string | null;
+    handle: string;
+    email: string;
+    password: string;
+  }) => http.post<{ user: ApiUser; tokens: ApiTokens }>('/auth/register', body),
 
   login: (email: string, password: string) =>
     http.post<{ user: ApiUser; tokens: ApiTokens }>('/auth/login', { email, password }),
@@ -100,8 +128,8 @@ export const trips = {
   addMember: (tripId: string, userId: string) =>
     http.post<{ member: ApiUser }>(`/trips/${tripId}/members`, { userId }),
 
-  addGuest: (tripId: string, name: string) =>
-    http.post<{ guest: ApiGuest }>(`/trips/${tripId}/guests`, { name }),
+  addGuest: (tripId: string, body: { lastName: string; firstName: string; middleName: string | null }) =>
+    http.post<{ guest: ApiGuest }>(`/trips/${tripId}/guests`, body),
 
   removeParticipant: (tripId: string, participantId: string) =>
     http.delete<{ message: string }>(`/trips/${tripId}/participants/${participantId}`),

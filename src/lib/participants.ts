@@ -10,45 +10,63 @@ export function tripParticipants(trip: Trip, users: DB['users'], sessionUserId: 
       ps.push({
         id: uid,
         name: disp(u.name),
+        fullName: u.name,
         kind: 'friend',
         isMe: uid === sessionUserId,
         isOwner: uid === trip.ownerId,
       });
   });
   (trip.guests || []).forEach((g) =>
-    ps.push({ id: g.id, name: disp(g.name), kind: 'guest', isMe: false, isOwner: false }),
+    ps.push({ id: g.id, name: disp(g.name), fullName: g.name, kind: 'guest', isMe: false, isOwner: false }),
   );
   return ps;
 }
 
 export type Disambiguation = {
-  idName: Record<string, string>; // имя + суффикс (только при коллизии имён)
-  idSub: Record<string, string>; // только суффикс (@handle / «гость N»)
+  idDisp: Record<string, string>; // имя + инициал фамилии (всегда, если фамилия есть)
+  idName: Record<string, string>; // idDisp + фолбэк-суффикс (только при коллизии)
+  idSub: Record<string, string>; // только фолбэк-суффикс (@handle / «гость N»)
 };
 
-// Дизамбигуация по @handle / «гость N»: суффикс добавляется ТОЛЬКО когда два участника
-// делят одно display-имя. Порт логики из renderVals().
+// Первая буква фамилии (второе слово полного имени): «Иванов» → «И.».
+function surnameInitial(fullName: string): string {
+  const words = fullName.trim().split(/\s+/);
+  return words.length > 1 ? words[1].charAt(0).toUpperCase() + '.' : '';
+}
+
+// Короткое имя с инициалом фамилии: «Никита Иванов» → «Никита И.».
+export function dispIni(fullName: string): string {
+  const ini = surnameInitial(fullName);
+  return ini ? disp(fullName) + ' ' + ini : disp(fullName);
+}
+
+// Отображаемое имя — всегда с инициалом фамилии, если она есть («Никита И.»).
+// Фолбэк-суффикс @handle / «гость N» добавляется, только когда совпали и имя,
+// и инициал (или у тёзок нет фамилий). Развитие логики renderVals().
 export function disambiguate(ps: Participant[], users: DB['users']): Disambiguation {
-  const nameCount: Record<string, number> = {};
+  const idDisp: Record<string, string> = {};
+  const dispCount: Record<string, number> = {};
   ps.forEach((p) => {
-    nameCount[p.name] = (nameCount[p.name] || 0) + 1;
+    const ini = surnameInitial(p.fullName);
+    idDisp[p.id] = ini ? p.name + ' ' + ini : p.name;
+    dispCount[idDisp[p.id]] = (dispCount[idDisp[p.id]] || 0) + 1;
   });
   const gIdx: Record<string, number> = {};
   const idName: Record<string, string> = {};
   const idSub: Record<string, string> = {};
   ps.forEach((p) => {
     let sub = '';
-    if (nameCount[p.name] > 1) {
+    if (dispCount[idDisp[p.id]] > 1) {
       if (p.kind === 'guest') {
-        gIdx[p.name] = (gIdx[p.name] || 0) + 1;
-        sub = 'гость ' + gIdx[p.name];
+        gIdx[idDisp[p.id]] = (gIdx[idDisp[p.id]] || 0) + 1;
+        sub = 'гость ' + gIdx[idDisp[p.id]];
       } else {
         const u = users[p.id];
         sub = u && u.handle ? '@' + u.handle : '';
       }
     }
     idSub[p.id] = sub;
-    idName[p.id] = sub ? p.name + ' · ' + sub : p.name;
+    idName[p.id] = sub ? idDisp[p.id] + ' · ' + sub : idDisp[p.id];
   });
-  return { idName, idSub };
+  return { idDisp, idName, idSub };
 }

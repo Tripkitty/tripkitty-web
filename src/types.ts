@@ -3,7 +3,10 @@
 
 export type User = {
   id: string; // 'u_' + random
-  name: string; // полное имя как ввёл пользователь — может быть «Фамилия Имя Отчество»
+  name: string; // вычисляемое сервером отображаемое имя: «Имя Фамилия» (без отчества)
+  lastName: string; // фамилия (обязательна на сервере)
+  firstName: string; // имя (обязательно на сервере)
+  middleName: string; // отчество; '' если не указано
   handle: string; // УНИКАЛЬНЫЙ логин, lowercase, [a-z0-9_]{3,20}, без ведущего @
   email: string; // уникальный, используется только для входа
   pass: string; // TODO(auth): plaintext в прототипе — заменить на реальную аутентификацию (хэш на бэкенде)
@@ -12,7 +15,8 @@ export type User = {
   outgoing: string[]; // id пользователей, которым заявку отправил я
 };
 
-export type Guest = { id: string; name: string }; // id 'g_' + random; без аккаунта
+// id 'g_' + random; без аккаунта. name — вычисляемое сервером «Имя Фамилия».
+export type Guest = { id: string; name: string; lastName: string; firstName: string; middleName: string };
 
 // Способ разбивки расхода: 0 — поровну, 1 — по частям (weight), 2 — точные суммы (amount).
 export type SplitType = 0 | 1 | 2;
@@ -62,6 +66,7 @@ export type DB = { users: Record<string, User>; trips: Trip[] };
 export type Participant = {
   id: string;
   name: string; // display = только первое слово
+  fullName: string; // имя как введено — источник инициала фамилии при тёзках
   kind: 'friend' | 'guest';
   isMe: boolean;
   isOwner: boolean;

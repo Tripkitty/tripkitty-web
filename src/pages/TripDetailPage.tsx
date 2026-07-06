@@ -31,7 +31,7 @@ export function TripDetailPage() {
     () => (trip ? tripParticipants(trip, db.users, sessionUserId) : []),
     [trip, db.users, sessionUserId],
   );
-  const { idName, idSub } = useMemo(() => disambiguate(ps, db.users), [ps, db.users]);
+  const { idDisp, idName, idSub } = useMemo(() => disambiguate(ps, db.users), [ps, db.users]);
 
   useEffect(() => {
     if (!id) return;
@@ -96,7 +96,7 @@ export function TripDetailPage() {
           {activeTab === 'participants' && (
             <div className="trip-col">
               <TripDates trip={trip} isOwner={isOwner} />
-              <Participants trip={trip} ps={ps} idSub={idSub} me={me} />
+              <Participants trip={trip} ps={ps} idDisp={idDisp} idSub={idSub} me={me} />
             </div>
           )}
 

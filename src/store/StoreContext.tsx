@@ -3,7 +3,7 @@ import * as api from '../api/api';
 import { connectHub, disconnectHub, onHubEvent } from '../api/signalr';
 import { refreshOnce } from '../api/http';
 import { clearTokens, getRefreshToken } from '../api/tokens';
-import { mapApiExpense, mapApiTripDetail, mapApiUser, mapFriendDto, curToCode } from '../api/mappers';
+import { mapApiExpense, mapApiGuest, mapApiTripDetail, mapApiUser, mapFriendDto, curToCode } from '../api/mappers';
 import { reducer, type State } from './reducer';
 import type { Action } from './actions';
 import type { DB, Trip, User } from '../types';
@@ -234,7 +234,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const cur = stateRef.current;
           const me = cur.db.users[sid];
           if (!me) break;
-          const newFriend = { id: friend.id, name: friend.name, handle: friend.handle, email: friend.email, pass: '', friends: [], incoming: [], outgoing: [] };
+          const newFriend = { id: friend.id, name: friend.name, lastName: friend.lastName ?? '', firstName: friend.firstName ?? '', middleName: friend.middleName ?? '', handle: friend.handle, email: friend.email, pass: '', friends: [], incoming: [], outgoing: [] };
           _dispatch({
             type: 'externalDB',
             db: {
@@ -257,7 +257,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const cur = stateRef.current;
           const me = cur.db.users[sid];
           if (!me) break;
-          const newRequester = { id: requester.id, name: requester.name, handle: requester.handle, email: requester.email, pass: '', friends: [], incoming: [], outgoing: [] };
+          const newRequester = { id: requester.id, name: requester.name, lastName: requester.lastName ?? '', firstName: requester.firstName ?? '', middleName: requester.middleName ?? '', handle: requester.handle, email: requester.email, pass: '', friends: [], incoming: [], outgoing: [] };
           _dispatch({
             type: 'externalDB',
             db: {
@@ -452,9 +452,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
 
       case 'addGuest': {
-        const { guest } = await api.trips.addGuest(action.tripId, action.name);
-        // Используем id от сервера, не локальный.
-        _dispatch({ type: 'addGuest', tripId: action.tripId, id: guest.id, name: guest.name });
+        const g = action.guest;
+        const { guest } = await api.trips.addGuest(action.tripId, {
+          lastName: g.lastName,
+          firstName: g.firstName,
+          middleName: g.middleName || null,
+        });
+        // Используем id и вычисленное name от сервера, не локальные.
+        _dispatch({ type: 'addGuest', tripId: action.tripId, guest: mapApiGuest(guest) });
         return;
       }
 
