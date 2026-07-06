@@ -44,9 +44,9 @@ realtime-обновления вместо cross-tab `storage`-события.
 
 | Сущность | Поля | Отличия от прототипа |
 |---|---|---|
-| **User** | `id`, `name`, `handle`, `email`, `friends[]`, `incoming[]`, `outgoing[]` | `pass` → **`passwordHash`** (bcrypt/argon2), наружу никогда не отдаётся. `email`/`handle` — уникальные индексы. |
+| **User** | `id`, `lastName`, `firstName`, `middleName?`, `name` (вычисляемое), `handle`, `email`, `friends[]`, `incoming[]`, `outgoing[]` | ФИО хранится 3 полями; `name` = «Имя Фамилия» вычисляется сервером и отдаётся во всех user-объектах. `pass` → **`passwordHash`** (bcrypt/argon2), наружу никогда не отдаётся. `email`/`handle` — уникальные индексы. |
 | **Trip** | `id`, `name`, `cur`, `ownerId`, `start`, `end`, `members[]`, `guests[]`, `version` | добавлен `version`/`updatedAt` для оптимистичной блокировки. |
-| **Guest** | `id` (`g_*`), `name` | без изменений. |
+| **Guest** | `id` (`g_*`), `lastName`, `firstName`, `middleName?`, `name` (вычисляемое) | ФИО 3 полями, как у User. |
 | **Expense** | `id`, `title`, `amount`, `payer`, `splitType`, `share[]`, `createdBy` | `splitType`: 0 — поровну, 1 — по частям, 2 — точные суммы. `share` — массив `{ participantId, weight?, amount? }`. `amount` хранить аккуратно (см. §4.4 про деньги). |
 | **TripEvent** | `id`, `title`, `date`, `time`, `endTime`, `createdBy` | без изменений. |
 
@@ -67,14 +67,14 @@ realtime-обновления вместо cross-tab `storage`-события.
 
 | Метод | Путь | Тело | Назначение |
 |---|---|---|---|
-| `POST` | `/auth/register` | `{ name, handle, email, password }` | Регистрация → создаёт User, возвращает `{ user, tokens }`. ← `register` + логика `AuthPage.register` |
+| `POST` | `/auth/register` | `{ lastName, firstName, middleName?, handle, email, password }` | Регистрация → создаёт User, возвращает `{ user, tokens }`. ← `register` + логика `AuthPage.register` |
 | `POST` | `/auth/login` | `{ email, password }` | Вход → `{ user, tokens }`. ← `AuthPage.login` |
 | `POST` | `/auth/refresh` | `{ refreshToken }` | Обновление access-токена. |
 | `POST` | `/auth/logout` | — | Инвалидация сессии/refresh. ← `setSession(null)` |
 | `GET` | `/auth/me` | — | Текущий пользователь по токену (бутстрап сессии при загрузке). |
 
 Валидация регистрации (порт из `AuthPage.register`, выполнять **на сервере**):
-- `name` — непустой (trim);
+- `lastName`, `firstName` — непустые (trim); `middleName` опционален;
 - `handle` — `^[a-z0-9_]{3,20}$`, привести к lowercase, срезать ведущие `@`, **уникален** → иначе `409 HANDLE_TAKEN`;
 - `email` — формат `^\S+@\S+\.\S+$`, lowercase, **уникален** → иначе `409 EMAIL_TAKEN`;
 - `password` — в прототипе ≥ 4 символа; на бэкенде поднять до разумного минимума (≥ 8) и хэшировать.
@@ -116,7 +116,7 @@ realtime-обновления вместо cross-tab `storage`-события.
 | Метод | Путь | Тело | Назначение |
 |---|---|---|---|
 | `POST` | `/trips/{id}/members` | `{ userId }` | Добавить друга как участника (идемпотентно). ← `addMember` |
-| `POST` | `/trips/{id}/guests` | `{ name }` | Добавить гостя без аккаунта. Сервер генерит `g_*` и возвращает `Guest`. ← `addGuest` |
+| `POST` | `/trips/{id}/guests` | `{ lastName, firstName, middleName? }` | Добавить гостя без аккаунта. Сервер генерит `g_*`, вычисляет `name` и возвращает `Guest`. ← `addGuest` |
 | `DELETE` | `/trips/{id}/participants/{participantId}` | — | Удалить участника (member или guest). ← `removeParticipant` |
 
 **Каскад при удалении участника** (критично — порт из `reducer.removeParticipant`, выполнять на сервере атомарно):

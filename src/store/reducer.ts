@@ -101,7 +101,7 @@ export function reducer(state: State, action: Action): State {
         ...state,
         db: updTrip(db, action.tripId, (t) => ({
           ...t,
-          guests: [...(t.guests || []), { id: action.id, name: action.name }],
+          guests: [...(t.guests || []), action.guest],
         })),
       };
 

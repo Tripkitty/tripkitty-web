@@ -1,4 +1,4 @@
-import type { DB, Expense, Trip, TripEvent, User } from '../types';
+import type { DB, Expense, Guest, Trip, TripEvent, User } from '../types';
 
 // Все мутации модели как дискриминированное объединение экшенов.
 // Каждый маппится 1:1 на будущий вызов API. Валидация и UX-сообщения — в компонентах,
@@ -23,7 +23,8 @@ export type Action =
   | { type: 'clearTrip'; tripId: string }
   // Участники
   | { type: 'addMember'; tripId: string; userId: string }
-  | { type: 'addGuest'; tripId: string; id: string; name: string }
+  // id/name гостя приходят от сервера; компонент передаёт их пустыми, заполняет StoreContext.
+  | { type: 'addGuest'; tripId: string; guest: Guest }
   | { type: 'removeParticipant'; tripId: string; participantId: string }
   // Расходы
   | { type: 'addExpense'; tripId: string; expense: Expense }

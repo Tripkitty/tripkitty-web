@@ -5,7 +5,15 @@ import { getAccessToken } from './tokens';
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:5010';
 
-export type FriendAcceptedPayload = { id: string; name: string; handle: string; email: string };
+export type FriendAcceptedPayload = {
+  id: string;
+  name: string;
+  lastName?: string | null;
+  firstName?: string | null;
+  middleName?: string | null;
+  handle: string;
+  email: string;
+};
 
 export type TripHubEvent =
   | { type: 'trip:updated'; payload: { id: string } }

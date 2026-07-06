@@ -28,6 +28,9 @@ export function mapApiUser(u: ApiUser, friendData?: {
   return {
     id: u.id,
     name: u.name,
+    lastName: u.lastName ?? '',
+    firstName: u.firstName ?? '',
+    middleName: u.middleName ?? '',
     handle: u.handle,
     email: u.email,
     pass: '',
@@ -38,7 +41,19 @@ export function mapApiUser(u: ApiUser, friendData?: {
 }
 
 export function mapFriendDto(f: ApiFriendDto): User {
-  return { id: f.id, name: f.name, handle: f.handle, email: f.email ?? '', pass: '', friends: [], incoming: [], outgoing: [] };
+  return {
+    id: f.id,
+    name: f.name,
+    lastName: f.lastName ?? '',
+    firstName: f.firstName ?? '',
+    middleName: f.middleName ?? '',
+    handle: f.handle,
+    email: f.email ?? '',
+    pass: '',
+    friends: [],
+    incoming: [],
+    outgoing: [],
+  };
 }
 
 // ─── API Trip → Domain Trip ───────────────────────────────────────────────────
@@ -60,8 +75,14 @@ export function mapApiExpense(e: ApiExpense): Expense {
   };
 }
 
-function mapApiGuest(g: ApiGuest): Guest {
-  return { id: g.id, name: g.name };
+export function mapApiGuest(g: ApiGuest): Guest {
+  return {
+    id: g.id,
+    name: g.name,
+    lastName: g.lastName ?? '',
+    firstName: g.firstName ?? '',
+    middleName: g.middleName ?? '',
+  };
 }
 
 function mapApiEvent(e: ApiTripEvent): TripEvent {

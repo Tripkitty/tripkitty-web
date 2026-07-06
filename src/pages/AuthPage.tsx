@@ -11,7 +11,9 @@ export function AuthPage() {
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [name, setName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
   const [handle, setHandle] = useState('');
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
@@ -62,10 +64,13 @@ export function AuthPage() {
   };
 
   const register = async () => {
-    const n = name.trim();
+    const ln = lastName.trim();
+    const fn = firstName.trim();
+    const mn = middleName.trim();
     const h = handle.trim().replace(/^@+/, '').toLowerCase();
     const e = email.trim().toLowerCase();
-    if (!n || !h || !e || !pass) return showErr('Заполни все поля', { name: !n, handle: !h, email: !e, pass: !pass });
+    if (!ln || !fn || !h || !e || !pass)
+      return showErr('Заполни обязательные поля', { lastName: !ln, firstName: !fn, handle: !h, email: !e, pass: !pass });
     if (!/^[a-z0-9_]{3,20}$/.test(h)) return showErr('Логин: 3–20 символов — латиница, цифры, _', { handle: true });
     if (!/^\S+@\S+\.\S+$/.test(e)) return showErr('Похоже, почта неверная', { email: true });
     if (pass.length < 8) return showErr('Пароль минимум 8 символов', { pass: true });
@@ -73,12 +78,17 @@ export function AuthPage() {
     setBusy(true);
     setErr('');
     try {
-      const res = await auth.register(n, h, e, pass);
+      const res = await auth.register({ lastName: ln, firstName: fn, middleName: mn || null, handle: h, email: e, password: pass });
       await setTokens(res.tokens.accessToken, res.tokens.refreshToken);
       await refreshSession();
       navigate('/trips');
     } catch (ex) {
-      showErr(ex instanceof ApiError ? ex.message : 'Ошибка регистрации');
+      if (ex instanceof ApiError) {
+        const f = ex.field === 'password' ? 'pass' : ex.field;
+        showErr(ex.message, f ? { [f]: true } : {});
+      } else {
+        showErr('Ошибка регистрации');
+      }
     } finally {
       setBusy(false);
     }
@@ -96,8 +106,12 @@ export function AuthPage() {
         <div className="auth-body">
           {isRegister && (
             <div className="field-group">
-              <input className={'input' + (bad.name ? ' invalid' : '')} placeholder="Имя или ФИО" value={name} onChange={(e) => { setName(e.target.value); clearBad('name'); }} onKeyDown={onKey} />
-              <div className="hint">Можно полностью — остальным показываем только имя</div>
+              <div className="row" style={{ flexWrap: 'wrap' }}>
+                <input className={'input' + (bad.lastName ? ' invalid' : '')} style={{ flex: 1, minWidth: 140 }} placeholder="Фамилия" value={lastName} onChange={(e) => { setLastName(e.target.value); clearBad('lastName'); }} onKeyDown={onKey} />
+                <input className={'input' + (bad.firstName ? ' invalid' : '')} style={{ flex: 1, minWidth: 140 }} placeholder="Имя" value={firstName} onChange={(e) => { setFirstName(e.target.value); clearBad('firstName'); }} onKeyDown={onKey} />
+              </div>
+              <input className="input" placeholder="Отчество (необязательно)" value={middleName} onChange={(e) => setMiddleName(e.target.value)} onKeyDown={onKey} />
+              <div className="hint">Остальным показываем имя и первую букву фамилии</div>
             </div>
           )}
 

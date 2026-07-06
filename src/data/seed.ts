@@ -5,10 +5,10 @@ import type { DB } from '../types';
 // TODO(auth): pass хранится в открытом виде только для прототипа — заменить на бэкенд.
 export function seedDb(): DB {
   const users: DB['users'] = {
-    u_artem: { id: 'u_artem', name: 'Артём', handle: 'artyom', email: 'me@trip.ru', pass: '1234', friends: ['u_anya', 'u_danil', 'u_vika'], incoming: [], outgoing: [] },
-    u_anya: { id: 'u_anya', name: 'Аня', handle: 'anya', email: 'anya@trip.ru', pass: '1234', friends: ['u_artem', 'u_danil'], incoming: [], outgoing: [] },
-    u_danil: { id: 'u_danil', name: 'Данил', handle: 'danil', email: 'danil@trip.ru', pass: '1234', friends: ['u_artem', 'u_anya'], incoming: [], outgoing: [] },
-    u_vika: { id: 'u_vika', name: 'Вика', handle: 'vika', email: 'vika@trip.ru', pass: '1234', friends: ['u_artem'], incoming: [], outgoing: [] },
+    u_artem: { id: 'u_artem', name: 'Артём Иванов', lastName: 'Иванов', firstName: 'Артём', middleName: '', handle: 'artyom', email: 'me@trip.ru', pass: '1234', friends: ['u_anya', 'u_danil', 'u_vika'], incoming: [], outgoing: [] },
+    u_anya: { id: 'u_anya', name: 'Аня Петрова', lastName: 'Петрова', firstName: 'Аня', middleName: '', handle: 'anya', email: 'anya@trip.ru', pass: '1234', friends: ['u_artem', 'u_danil'], incoming: [], outgoing: [] },
+    u_danil: { id: 'u_danil', name: 'Данил Сидоров', lastName: 'Сидоров', firstName: 'Данил', middleName: '', handle: 'danil', email: 'danil@trip.ru', pass: '1234', friends: ['u_artem', 'u_anya'], incoming: [], outgoing: [] },
+    u_vika: { id: 'u_vika', name: 'Вика Козлова', lastName: 'Козлова', firstName: 'Вика', middleName: '', handle: 'vika', email: 'vika@trip.ru', pass: '1234', friends: ['u_artem'], incoming: [], outgoing: [] },
   };
   const trips: DB['trips'] = [
     {
@@ -19,7 +19,7 @@ export function seedDb(): DB {
       start: '2026-06-12',
       end: '2026-06-15',
       members: ['u_artem', 'u_anya', 'u_danil'],
-      guests: [{ id: 'g_anya2', name: 'Аня' }],
+      guests: [{ id: 'g_anya2', name: 'Аня Смирнова', lastName: 'Смирнова', firstName: 'Аня', middleName: '' }],
       expenses: [
         { id: 'e1', title: 'Гостиница', amount: 9000, payer: 'u_artem', splitType: 0, share: [{ participantId: 'u_artem' }, { participantId: 'u_anya' }, { participantId: 'u_danil' }], createdBy: 'u_artem' },
         { id: 'e2', title: 'Такси', amount: 1200, payer: 'u_anya', splitType: 0, share: [{ participantId: 'u_artem' }, { participantId: 'u_anya' }], createdBy: 'u_anya' },

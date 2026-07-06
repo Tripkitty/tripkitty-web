@@ -1,22 +1,25 @@
 import { useState, type KeyboardEvent } from 'react';
 import { useStore } from '../../hooks/useStore';
 import { useToast } from '../../hooks/useToast';
-import { disp } from '../../lib/format';
+import { dispIni } from '../../lib/participants';
 import { Avatar } from '../../components/Avatar';
 import type { Participant, Trip, User } from '../../types';
 
 type Props = {
   trip: Trip;
   ps: Participant[];
+  idDisp: Record<string, string>;
   idSub: Record<string, string>;
   me: User;
 };
 
-export function Participants({ trip, ps, idSub, me }: Props) {
+export function Participants({ trip, ps, idDisp, idSub, me }: Props) {
   const { db, dispatch } = useStore();
   const toast = useToast();
-  const [guestName, setGuestName] = useState('');
-  const [guestBad, setGuestBad] = useState(false);
+  const [guestLast, setGuestLast] = useState('');
+  const [guestFirst, setGuestFirst] = useState('');
+  const [guestMiddle, setGuestMiddle] = useState('');
+  const [guestBad, setGuestBad] = useState<{ last?: boolean; first?: boolean }>({});
 
   // Тег участника: @handle / гость[ N] + роли «вы» / «создатель».
   const tagFor = (p: Participant): string => {
@@ -33,15 +36,18 @@ export function Participants({ trip, ps, idSub, me }: Props) {
   };
 
   const addGuest = () => {
-    const name = guestName.trim();
-    if (!name) {
-      // Раньше пустое имя игнорировалось молча — кнопка выглядела неработающей.
-      setGuestBad(true);
-      return toast.error('Введи имя гостя');
+    const lastName = guestLast.trim();
+    const firstName = guestFirst.trim();
+    const middleName = guestMiddle.trim();
+    if (!lastName || !firstName) {
+      setGuestBad({ last: !lastName, first: !firstName });
+      return toast.error('Введи фамилию и имя гостя');
     }
-    // id придёт от сервера через dispatch в StoreContext
-    dispatch({ type: 'addGuest', tripId: trip.id, id: '', name });
-    setGuestName('');
+    // id и вычисленное name придут от сервера через dispatch в StoreContext
+    dispatch({ type: 'addGuest', tripId: trip.id, guest: { id: '', name: '', lastName, firstName, middleName } });
+    setGuestLast('');
+    setGuestFirst('');
+    setGuestMiddle('');
   };
   const onGuestKey = (e: KeyboardEvent) => {
     if (e.key === 'Enter') addGuest();
@@ -60,7 +66,7 @@ export function Participants({ trip, ps, idSub, me }: Props) {
         {ps.map((p) => (
           <span key={p.id} className="participant-chip">
             <Avatar id={p.id} name={p.name} size={22} isMe={p.isMe} />
-            <span style={{ fontWeight: 600 }}>{p.name}</span>
+            <span style={{ fontWeight: 600 }}>{idDisp[p.id]}</span>
             {tagFor(p) && <span className="chip-tag">{tagFor(p)}</span>}
             {!p.isOwner && (
               <button
@@ -91,7 +97,7 @@ export function Participants({ trip, ps, idSub, me }: Props) {
                 onClick={() => dispatch({ type: 'addMember', tripId: trip.id, userId: u.id })}
               >
                 <Avatar id={u.id} name={u.name} size={23} />
-                <span style={{ fontWeight: 600 }}>{disp(u.name)}</span>
+                <span style={{ fontWeight: 600 }}>{dispIni(u.name)}</span>
                 <span style={{ color: 'var(--accent)', fontWeight: 700, fontSize: 16 }}>+</span>
               </button>
             ))}
@@ -100,13 +106,34 @@ export function Participants({ trip, ps, idSub, me }: Props) {
           <div className="hint">{addableHint}</div>
         )}
 
+        <div className="hint" style={{ fontWeight: 600 }}>
+          …или гость без аккаунта
+        </div>
+        <div className="row" style={{ flexWrap: 'wrap' }}>
+          <input
+            className={'input' + (guestBad.last ? ' invalid' : '')}
+            style={{ flex: 1, minWidth: 130 }}
+            placeholder="Фамилия"
+            value={guestLast}
+            onChange={(e) => { setGuestLast(e.target.value); setGuestBad((b) => ({ ...b, last: false })); }}
+            onKeyDown={onGuestKey}
+          />
+          <input
+            className={'input' + (guestBad.first ? ' invalid' : '')}
+            style={{ flex: 1, minWidth: 130 }}
+            placeholder="Имя"
+            value={guestFirst}
+            onChange={(e) => { setGuestFirst(e.target.value); setGuestBad((b) => ({ ...b, first: false })); }}
+            onKeyDown={onGuestKey}
+          />
+        </div>
         <div className="row">
           <input
-            className={'input' + (guestBad ? ' invalid' : '')}
+            className="input"
             style={{ flex: 1 }}
-            placeholder="…или гость без аккаунта"
-            value={guestName}
-            onChange={(e) => { setGuestName(e.target.value); setGuestBad(false); }}
+            placeholder="Отчество (необязательно)"
+            value={guestMiddle}
+            onChange={(e) => setGuestMiddle(e.target.value)}
             onKeyDown={onGuestKey}
           />
           <button type="button" className="btn chip-on sm" onClick={addGuest}>
