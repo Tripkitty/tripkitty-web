@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useToast } from '../../hooks/useToast';
 import { useBanks } from '../../hooks/useBanks';
-import { formatPhone } from '../../lib/format';
+import { formatPhone, formatRuPhoneInput, ruPhoneDigits } from '../../lib/format';
 import { BankPicker } from '../../components/BankPicker';
+import { PhoneInput } from '../../components/PhoneInput';
 import { trips as tripsApi, paymentMethods as pmApi, type ApiPaymentMethod, type ApiTripPayment } from '../../api/api';
 import { ApiError } from '../../api/http';
 
@@ -38,7 +39,7 @@ export function MyTripPayment({ tripId, onChanged }: Props) {
   }, [tripId]);
 
   const openEditor = () => {
-    setPhone(state?.payment?.phone ?? '');
+    setPhone(formatRuPhoneInput(state?.payment?.phone ?? ''));
     setPickedBanks(state?.payment?.banks ?? []);
     setBad({});
     setEditing(true);
@@ -65,16 +66,15 @@ export function MyTripPayment({ tripId, onChanged }: Props) {
   };
 
   const saveOverride = async () => {
-    const p = phone.trim();
-    const digits = p.replace(/\D/g, '');
-    const phoneOk = digits.length === 10 || digits.length === 11;
+    const digits = ruPhoneDigits(phone);
+    const phoneOk = digits.length === 10;
     if (!phoneOk || pickedBanks.length === 0) {
       setBad({ phone: !phoneOk, banks: pickedBanks.length === 0 });
       return toast.error('Укажи телефон и хотя бы один банк');
     }
     setBusy(true);
     try {
-      const next = await tripsApi.setMyPayment(tripId, { phone: p, banks: pickedBanks, label: null });
+      const next = await tripsApi.setMyPayment(tripId, { phone: '+7' + digits, banks: pickedBanks, label: null });
       afterChange(next);
       toast.success('Реквизиты для поездки обновлены');
     } catch (e) {
@@ -142,13 +142,10 @@ export function MyTripPayment({ tripId, onChanged }: Props) {
 
           <div className="pay-banks-field">
             <span className="field-label">…или ввести для этой поездки</span>
-            <input
-              className={'input' + (bad.phone ? ' invalid' : '')}
-              type="tel"
-              inputMode="tel"
-              placeholder="Телефон (+7…)"
+            <PhoneInput
               value={phone}
-              onChange={(e) => { setPhone(e.target.value); setBad((b) => ({ ...b, phone: false })); }}
+              invalid={bad.phone}
+              onChange={(v) => { setPhone(v); setBad((b) => ({ ...b, phone: false })); }}
             />
             <BankPicker
               banks={banks}

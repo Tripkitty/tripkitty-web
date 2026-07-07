@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useToast } from '../hooks/useToast';
 import { useBanks } from '../hooks/useBanks';
-import { formatPhone } from '../lib/format';
+import { formatPhone, formatRuPhoneInput, ruPhoneDigits } from '../lib/format';
 import { BankPicker } from '../components/BankPicker';
+import { PhoneInput } from '../components/PhoneInput';
 import { HeaderBand } from '../components/HeaderBand';
 import { paymentMethods as pmApi, type ApiPaymentMethod } from '../api/api';
 import { ApiError } from '../api/http';
@@ -38,7 +39,7 @@ export function PaymentMethods() {
     setEditing('new');
   };
   const startEdit = (m: ApiPaymentMethod) => {
-    setForm({ phone: m.phone, banks: m.banks, label: m.label ?? '' });
+    setForm({ phone: formatRuPhoneInput(m.phone), banks: m.banks, label: m.label ?? '' });
     setBad({});
     setEditing(m.id);
   };
@@ -48,13 +49,13 @@ export function PaymentMethods() {
   };
 
   const save = async () => {
-    const phone = form.phone.trim();
-    const digits = phone.replace(/\D/g, '');
-    const phoneOk = digits.length === 10 || digits.length === 11;
+    const digits = ruPhoneDigits(form.phone);
+    const phoneOk = digits.length === 10;
     if (!phoneOk || form.banks.length === 0) {
       setBad({ phone: !phoneOk, banks: form.banks.length === 0 });
       return toast.error('Укажи телефон и хотя бы один банк');
     }
+    const phone = '+7' + digits;
 
     setBusy(true);
     try {
@@ -116,13 +117,10 @@ export function PaymentMethods() {
         value={form.label}
         onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
       />
-      <input
-        className={'input' + (bad.phone ? ' invalid' : '')}
-        type="tel"
-        inputMode="tel"
-        placeholder="Телефон (+7…)"
+      <PhoneInput
         value={form.phone}
-        onChange={(e) => { setForm((f) => ({ ...f, phone: e.target.value })); setBad((b) => ({ ...b, phone: false })); }}
+        invalid={bad.phone}
+        onChange={(v) => { setForm((f) => ({ ...f, phone: v })); setBad((b) => ({ ...b, phone: false })); }}
       />
       <div className="pay-banks-field">
         <span className="field-label">Банки для перевода</span>

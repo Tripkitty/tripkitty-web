@@ -3,9 +3,10 @@ import { useStore } from '../../hooks/useStore';
 import { useToast } from '../../hooks/useToast';
 import { useBanks } from '../../hooks/useBanks';
 import { dispIni } from '../../lib/participants';
-import { formatPhone } from '../../lib/format';
+import { formatPhone, ruPhoneDigits } from '../../lib/format';
 import { Avatar } from '../../components/Avatar';
 import { BankPicker } from '../../components/BankPicker';
+import { PhoneInput } from '../../components/PhoneInput';
 import type { Participant, Trip, User } from '../../types';
 
 type Props = {
@@ -57,15 +58,14 @@ export function Participants({ trip, ps, idDisp, idSub, me }: Props) {
       setGuestBad({ last: !lastName, first: !firstName });
       return toast.error('Введи фамилию и имя гостя');
     }
-    // Реквизиты необязательны, но если начали — нужны и телефон, и хотя бы один банк.
-    const phone = guestPhone.trim();
-    const digits = phone.replace(/\D/g, '');
-    const hasPay = phone !== '' || guestBanks.length > 0;
-    if (hasPay && !(digits.length === 10 || digits.length === 11 ? guestBanks.length > 0 : false)) {
+    // Реквизиты необязательны, но если начали — нужны и полный телефон, и хотя бы один банк.
+    const digits = ruPhoneDigits(guestPhone);
+    const hasPay = digits.length > 0 || guestBanks.length > 0;
+    if (hasPay && (digits.length !== 10 || guestBanks.length === 0)) {
       setGuestBad({ pay: true });
       return toast.error('Для реквизитов гостя укажи телефон и хотя бы один банк');
     }
-    const paymentDetails = hasPay ? { phone, banks: guestBanks, label: null } : null;
+    const paymentDetails = hasPay ? { phone: '+7' + digits, banks: guestBanks, label: null } : null;
     // id и вычисленное name придут от сервера через dispatch в StoreContext
     dispatch({ type: 'addGuest', tripId: trip.id, guest: { id: '', name: '', lastName, firstName, middleName, paymentDetails } });
     setGuestLast('');
@@ -168,13 +168,10 @@ export function Participants({ trip, ps, idDisp, idSub, me }: Props) {
         {/* Реквизиты гостя для перевода по СБП — необязательно */}
         <div className="pay-banks-field">
           <span className="field-label">Реквизиты для перевода (необязательно)</span>
-          <input
-            className={'input' + (guestBad.pay ? ' invalid' : '')}
-            type="tel"
-            inputMode="tel"
-            placeholder="Телефон (+7…)"
+          <PhoneInput
             value={guestPhone}
-            onChange={(e) => { setGuestPhone(e.target.value); setGuestBad((b) => ({ ...b, pay: false })); }}
+            invalid={guestBad.pay}
+            onChange={(v) => { setGuestPhone(v); setGuestBad((b) => ({ ...b, pay: false })); }}
           />
           <BankPicker
             banks={banks}
