@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useMe, useStore } from '../hooks/useStore';
 import { TopBar } from './TopBar';
+import { WhatsNew } from './WhatsNew';
 
 export function AppLayout() {
   const { loading } = useStore();
@@ -24,6 +25,7 @@ export function AppLayout() {
     <div className="app-shell">
       <TopBar />
       <Outlet />
+      <WhatsNew enabled={!!me} />
     </div>
   );
 }

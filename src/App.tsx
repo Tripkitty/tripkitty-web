@@ -4,6 +4,7 @@ import { AuthPage } from './pages/AuthPage';
 import { TripsListPage } from './pages/TripsListPage';
 import { TripDetailPage } from './pages/TripDetailPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { FriendsPage } from './pages/FriendsPage';
 import { SettingsPage } from './pages/SettingsPage';
 
 export default function App() {
@@ -14,9 +15,8 @@ export default function App() {
         <Route path="/trips" element={<TripsListPage />} />
         <Route path="/trips/:id" element={<TripDetailPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/friends" element={<FriendsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
-        {/* Друзья переехали в профиль — старые ссылки редиректим */}
-        <Route path="/friends" element={<Navigate to="/profile" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/trips" replace />} />
     </Routes>

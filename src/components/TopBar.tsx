@@ -21,6 +21,7 @@ export function TopBar() {
 
   const onTrips = location.pathname.startsWith('/trips');
   const onProfile = location.pathname.startsWith('/profile');
+  const onFriends = location.pathname.startsWith('/friends');
   const onSettings = location.pathname.startsWith('/settings');
   const incomingCount = me.incoming.length;
 
@@ -32,9 +33,12 @@ export function TopBar() {
           <NavLink to="/trips" className={'seg-btn nav' + (onTrips ? ' active' : '')}>
             Поездки
           </NavLink>
+          <NavLink to="/friends" className={'seg-btn nav' + (onFriends ? ' active' : '')}>
+            Друзья
+            {incomingCount > 0 && <span className="nav-badge">{incomingCount}</span>}
+          </NavLink>
           <NavLink to="/profile" className={'seg-btn nav' + (onProfile ? ' active' : '')}>
             Профиль
-            {incomingCount > 0 && <span className="nav-badge">{incomingCount}</span>}
           </NavLink>
         </div>
 
