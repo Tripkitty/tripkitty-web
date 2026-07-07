@@ -808,6 +808,23 @@ button.participant-chip:hover {
 .chip-remove:hover {
   filter: brightness(1.1);
 }
+.chip-edit {
+  border: none;
+  background: var(--chip-on);
+  color: var(--chip-on-tx);
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  transition: filter 0.12s;
+}
+.chip-edit:hover {
+  filter: brightness(1.1);
+}
 .add-box {
   background: var(--field);
   border-radius: 14px;

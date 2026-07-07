@@ -72,6 +72,7 @@ realtime-обновления вместо cross-tab `storage`-события.
 | `POST` | `/auth/refresh` | `{ refreshToken }` | Обновление access-токена. |
 | `POST` | `/auth/logout` | — | Инвалидация сессии/refresh. ← `setSession(null)` |
 | `GET` | `/auth/me` | — | Текущий пользователь по токену (бутстрап сессии при загрузке). |
+| `PATCH` | `/auth/me` | `{ lastName?, firstName?, middleName? }` | Обновление ФИО. Опущенное/`null` — не менять; `middleName:""` — сброс отчества; пустой `lastName`/`firstName` → `400 VALIDATION_ERROR (field)`. Возвращает `{ user }`. ← `updateProfile` |
 
 Валидация регистрации (порт из `AuthPage.register`, выполнять **на сервере**):
 - `lastName`, `firstName` — непустые (trim); `middleName` опционален;
@@ -117,6 +118,7 @@ realtime-обновления вместо cross-tab `storage`-события.
 |---|---|---|---|
 | `POST` | `/trips/{id}/members` | `{ userId }` | Добавить друга как участника (идемпотентно). ← `addMember` |
 | `POST` | `/trips/{id}/guests` | `{ lastName, firstName, middleName? }` | Добавить гостя без аккаунта. Сервер генерит `g_*`, вычисляет `name` и возвращает `Guest`. ← `addGuest` |
+| `PATCH` | `/trips/{id}/guests/{guestId}` | `{ lastName?, firstName?, middleName?, paymentDetails?, clearPayment? }` | Обновить ФИО/реквизиты гостя (любой участник; If-Match не нужен). ФИО — как у `/auth/me`. `paymentDetails` задан → задать/заменить; `clearPayment:true` (без `paymentDetails`) → сброс в `null`; ни того ни другого → не менять. Шлёт `trip:updated` по SignalR. ← `updateGuest` |
 | `DELETE` | `/trips/{id}/participants/{participantId}` | — | Удалить участника (member или guest). ← `removeParticipant` |
 
 **Каскад при удалении участника** (критично — порт из `reducer.removeParticipant`, выполнять на сервере атомарно):

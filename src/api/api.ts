@@ -124,6 +124,10 @@ export const auth = {
     http.post<{ message: string }>('/auth/logout', { refreshToken }),
 
   me: () => http.get<{ user: ApiUser }>('/auth/me'),
+
+  // Частичное обновление ФИО. Опущенное / null поле не меняется; middleName: '' сбрасывает отчество.
+  updateMe: (body: { lastName?: string; firstName?: string; middleName?: string | null }) =>
+    http.patch<{ user: ApiUser }>('/auth/me', body),
 };
 
 // ─── Поездки ─────────────────────────────────────────────────────────────────
@@ -158,6 +162,18 @@ export const trips = {
     paymentDetails?: ApiPaymentDetails | null;
   }) =>
     http.post<{ guest: ApiGuest }>(`/trips/${tripId}/guests`, body),
+
+  // Частичное обновление гостя (ФИО + реквизиты). Правила ФИО — как у updateMe.
+  // paymentDetails задан → задать/заменить; clearPayment: true (без paymentDetails) → сбросить в null;
+  // ни того, ни другого → реквизиты не меняются. If-Match не нужен.
+  patchGuest: (tripId: string, guestId: string, body: {
+    lastName?: string;
+    firstName?: string;
+    middleName?: string | null;
+    paymentDetails?: ApiPaymentDetails | null;
+    clearPayment?: boolean;
+  }) =>
+    http.patch<{ guest: ApiGuest }>(`/trips/${tripId}/guests/${guestId}`, body),
 
   removeParticipant: (tripId: string, participantId: string) =>
     http.delete<{ message: string }>(`/trips/${tripId}/participants/${participantId}`),
