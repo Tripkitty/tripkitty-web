@@ -311,6 +311,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         _dispatch(action);
         return;
 
+      // ── Профиль ────────────────────────────────────────────────────────────
+
+      case 'updateProfile': {
+        // middleName: '' сбрасывает отчество на сервере (не опускаем).
+        const { user } = await api.auth.updateMe({
+          lastName: action.lastName,
+          firstName: action.firstName,
+          middleName: action.middleName,
+        });
+        const cur = stateRef.current;
+        const existing = cur.db.users[user.id];
+        // Сохраняем friends/incoming/outgoing текущего пользователя — PATCH их не возвращает.
+        const updated = mapApiUser(user, existing
+          ? { friends: existing.friends, incoming: existing.incoming, outgoing: existing.outgoing }
+          : undefined);
+        _dispatch({
+          type: 'externalDB',
+          db: { ...cur.db, users: { ...cur.db.users, [user.id]: updated } },
+        });
+        return;
+      }
+
       // ── Друзья ─────────────────────────────────────────────────────────────
 
       case 'friendRequest': {
@@ -457,9 +479,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           lastName: g.lastName,
           firstName: g.firstName,
           middleName: g.middleName || null,
+          paymentDetails: g.paymentDetails ?? null,
         });
         // Используем id и вычисленное name от сервера, не локальные.
         _dispatch({ type: 'addGuest', tripId: action.tripId, guest: mapApiGuest(guest) });
+        return;
+      }
+
+      case 'updateGuest': {
+        await api.trips.patchGuest(action.tripId, action.guestId, {
+          lastName: action.lastName,
+          firstName: action.firstName,
+          middleName: action.middleName,
+          paymentDetails: action.paymentDetails ?? undefined,
+          clearPayment: action.clearPayment,
+        });
+        // Сервер шлёт trip:updated по SignalR (тот же полный рефетч); делаем его же для мгновенности.
+        const { trip: fresh } = await api.trips.get(action.tripId);
+        const { trip: dt, users } = mapApiTripDetail(fresh);
+        const cur = stateRef.current;
+        _dispatch({
+          type: 'externalDB',
+          db: {
+            ...cur.db,
+            users: mergeUsers(cur.db.users, users),
+            trips: cur.db.trips.map((t) => (t.id === dt.id ? dt : t)),
+          },
+        });
         return;
       }
 

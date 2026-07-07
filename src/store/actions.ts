@@ -1,4 +1,4 @@
-import type { DB, Expense, Guest, Trip, TripEvent, User } from '../types';
+import type { DB, Expense, Guest, PaymentDetails, Trip, TripEvent, User } from '../types';
 
 // Все мутации модели как дискриминированное объединение экшенов.
 // Каждый маппится 1:1 на будущий вызов API. Валидация и UX-сообщения — в компонентах,
@@ -9,6 +9,8 @@ export type Action =
   // Аутентификация
   | { type: 'register'; user: User }
   | { type: 'setSession'; userId: string | null }
+  // Профиль: обновление ФИО текущего пользователя (middleName: '' сбрасывает отчество)
+  | { type: 'updateProfile'; lastName: string; firstName: string; middleName: string }
   // Друзья
   | { type: 'friendRequest'; fromId: string; toId: string }
   | { type: 'acceptFriend'; meId: string; fromId: string }
@@ -25,6 +27,8 @@ export type Action =
   | { type: 'addMember'; tripId: string; userId: string }
   // id/name гостя приходят от сервера; компонент передаёт их пустыми, заполняет StoreContext.
   | { type: 'addGuest'; tripId: string; guest: Guest }
+  // Обновление ФИО/реквизитов гостя. paymentDetails — задать; clearPayment — сбросить; ни того ни другого — не менять
+  | { type: 'updateGuest'; tripId: string; guestId: string; lastName: string; firstName: string; middleName: string; paymentDetails?: PaymentDetails | null; clearPayment?: boolean }
   | { type: 'removeParticipant'; tripId: string; participantId: string }
   // Расходы
   | { type: 'addExpense'; tripId: string; expense: Expense }

@@ -15,8 +15,32 @@ export type User = {
   outgoing: string[]; // id пользователей, которым заявку отправил я
 };
 
+// Реквизиты для перевода по СБП: телефон получателя + допустимые банки + необязательная метка.
+export type PaymentDetails = {
+  phone: string; // нормализованный сервером +7XXXXXXXXXX
+  banks: string[]; // коды банков из справочника GET /banks
+  label: string | null; // подпись способа («Основной»), может быть null
+};
+
+// Способ оплаты в профиле пользователя = реквизиты + id + флаг дефолта.
+export type PaymentMethod = PaymentDetails & {
+  id: string; // 'pm_...'
+  isDefault: boolean;
+};
+
+// Справочник банков (GET /banks) — код и человекочитаемое имя.
+export type Bank = { code: string; name: string };
+
 // id 'g_' + random; без аккаунта. name — вычисляемое сервером «Имя Фамилия».
-export type Guest = { id: string; name: string; lastName: string; firstName: string; middleName: string };
+// paymentDetails — реквизиты гостя для переводов (задаются при добавлении, необязательны).
+export type Guest = {
+  id: string;
+  name: string;
+  lastName: string;
+  firstName: string;
+  middleName: string;
+  paymentDetails?: PaymentDetails | null;
+};
 
 // Способ разбивки расхода: 0 — поровну, 1 — по частям (weight), 2 — точные суммы (amount).
 export type SplitType = 0 | 1 | 2;

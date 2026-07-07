@@ -35,6 +35,42 @@ export function fmt(n: number, cur: string): string {
   return (neg ? '−' : '') + s + ' ' + (cur || '');
 }
 
+// Телефон СБП: сервер нормализует к +7XXXXXXXXXX; красиво разбиваем на «+7 999 123-45-67».
+// Если строка не в ожидаемом формате — возвращаем как есть.
+export function formatPhone(phone: string): string {
+  const d = (phone || '').replace(/\D/g, '');
+  const ten = d.length === 11 && (d[0] === '7' || d[0] === '8') ? d.slice(1) : d;
+  if (ten.length !== 10) return phone || '';
+  return `+7 ${ten.slice(0, 3)} ${ten.slice(3, 6)}-${ten.slice(6, 8)}-${ten.slice(8, 10)}`;
+}
+
+// Оставляет до 10 «национальных» цифр РФ-номера. Ведущий код страны 7/8 всегда
+// отбрасывается — в т.ч. цифра «7» из маски «+7», которую при повторном разборе
+// value иначе принимали бы за национальную (номера РФ начинаются с 9, не с 7/8).
+export function ruPhoneDigits(input: string): string {
+  let d = (input || '').replace(/\D/g, '');
+  if (d[0] === '7' || d[0] === '8') d = d.slice(1);
+  return d.slice(0, 10);
+}
+
+// Маска ввода: «+7 (999) 123-45-67». Пустой ввод → '' (чтобы был виден placeholder).
+export function formatRuPhoneInput(input: string): string {
+  const d = ruPhoneDigits(input);
+  if (!d) return '';
+  let out = '+7 (' + d.slice(0, 3);
+  if (d.length >= 3) out += ')';
+  if (d.length > 3) out += ' ' + d.slice(3, 6);
+  if (d.length > 6) out += '-' + d.slice(6, 8);
+  if (d.length > 8) out += '-' + d.slice(8, 10);
+  return out;
+}
+
+// Нормализация к формату сервера +7XXXXXXXXXX; '' если номер неполный.
+export function ruPhoneE164(input: string): string {
+  const d = ruPhoneDigits(input);
+  return d.length === 10 ? '+7' + d : '';
+}
+
 const MONTHS = [
   'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
   'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',

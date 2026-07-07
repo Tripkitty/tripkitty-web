@@ -82,6 +82,7 @@ export function mapApiGuest(g: ApiGuest): Guest {
     lastName: g.lastName ?? '',
     firstName: g.firstName ?? '',
     middleName: g.middleName ?? '',
+    paymentDetails: g.paymentDetails ?? null,
   };
 }
 
