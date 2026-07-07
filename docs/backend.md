@@ -198,6 +198,22 @@ realtime-обновления вместо cross-tab `storage`-события.
 Клиент: `src/api/api.ts` (`banks`, `paymentMethods`, `trips.getMyPayment/setMyPayment`), UI —
 `PaymentMethods` (профиль), `MyTripPayment` (поездка), `BankPicker`, реквизиты гостя в `Participants`.
 
+### 3.9 Что нового (What's New)
+
+Плашка «что нового» после обновления. Контент задаётся на бэкенде статически; фронт сам решает,
+показывать ли её, сравнивая версию с сохранённой локально.
+
+| Метод | Путь | Тело | Назначение |
+|---|---|---|---|
+| `GET` | `/whats-new?since={version}` | — | `{ whatsNew: { latestVersion, releases[] } }` (без авторизации). Без `since` — вся история. |
+
+`ReleaseDto` = `{ version, title, date?, items[] }`; `releases` отсортированы от новых к старым, `since`
+отдаёт только релизы новее указанной версии. Паттерн клиента: последняя показанная версия — в
+`localStorage` (`whatsNewSeenVersion`); первый запуск (ключа нет) — записать `latestVersion` и **не**
+показывать; иначе `GET ?since={seen}`, при непустом `releases` — показать и записать `latestVersion`.
+`items` рендерить как plain-текст, не HTML. Клиент: `whatsNew` в `src/api/api.ts`, хук `useWhatsNew`,
+компонент `WhatsNew` (bottom sheet, монтируется в `AppLayout` для залогиненных).
+
 ---
 
 ## 4. Сквозная бизнес-логика

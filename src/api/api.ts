@@ -259,6 +259,27 @@ export const push = {
     http.delete<{ message: string }>('/notifications/subscribe', { endpoint }),
 };
 
+// ─── Что нового (What's New) ────────────────────────────────────────────────────
+
+export type ApiRelease = {
+  version: number;
+  title: string;
+  date?: string | null;
+  items: string[];
+};
+
+export type ApiWhatsNew = {
+  latestVersion: number;
+  releases: ApiRelease[];
+};
+
+export const whatsNew = {
+  // Публичный эндпоинт. since — версия, которую клиент уже видел (вернутся только релизы новее).
+  // Без since отдаётся вся история изменений.
+  get: (since?: number) =>
+    http.get<{ whatsNew: ApiWhatsNew }>('/whats-new' + (since != null ? `?since=${since}` : '')),
+};
+
 // ─── Справочник банков ─────────────────────────────────────────────────────────
 
 export const banks = {
