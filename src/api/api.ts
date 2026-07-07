@@ -49,12 +49,34 @@ export type ApiTripEvent = {
   createdBy: string;
 };
 
+// ─── Реквизиты / СБП ───────────────────────────────────────────────────────
+
+export type ApiPaymentDetails = {
+  phone: string;
+  banks: string[];
+  label: string | null;
+};
+
+export type ApiPaymentMethod = ApiPaymentDetails & {
+  id: string;
+  isDefault: boolean;
+};
+
+export type ApiBank = { code: string; name: string };
+
+// source: 'trip' — задан override поездки; 'profile' — взят дефолт из профиля; 'none' — реквизитов нет.
+export type ApiTripPayment = {
+  payment: ApiPaymentDetails | null;
+  source: 'trip' | 'profile' | 'none';
+};
+
 export type ApiGuest = {
   id: string;
   name: string; // вычисляемое сервером «Имя Фамилия»
   lastName: string;
   firstName: string;
   middleName: string | null;
+  paymentDetails?: ApiPaymentDetails | null;
 };
 
 export type ApiTripDetail = ApiTripSummary & {
@@ -76,7 +98,8 @@ export type ApiFriendDto = {
 
 export type ApiSettlements = {
   balances: Record<string, number>;
-  transactions: { from: string; to: string; amount: number }[];
+  // toPayment — реквизиты получателя (to), куда переводить; null, если у него их нет.
+  transactions: { from: string; to: string; amount: number; toPayment?: ApiPaymentDetails | null }[];
 };
 
 // ─── Аутентификация ──────────────────────────────────────────────────────────
@@ -128,7 +151,12 @@ export const trips = {
   addMember: (tripId: string, userId: string) =>
     http.post<{ member: ApiUser }>(`/trips/${tripId}/members`, { userId }),
 
-  addGuest: (tripId: string, body: { lastName: string; firstName: string; middleName: string | null }) =>
+  addGuest: (tripId: string, body: {
+    lastName: string;
+    firstName: string;
+    middleName: string | null;
+    paymentDetails?: ApiPaymentDetails | null;
+  }) =>
     http.post<{ guest: ApiGuest }>(`/trips/${tripId}/guests`, body),
 
   removeParticipant: (tripId: string, participantId: string) =>
@@ -144,6 +172,15 @@ export const trips = {
 
   getSettlements: (tripId: string) =>
     http.get<ApiSettlements>(`/trips/${tripId}/settlements`),
+
+  // ─── Мои реквизиты в поездке (override поверх профиля) ────────────────────
+
+  getMyPayment: (tripId: string) =>
+    http.get<ApiTripPayment>(`/trips/${tripId}/me/payment`),
+
+  // payment: null — сбросить override (реквизиты снова из профиля).
+  setMyPayment: (tripId: string, payment: ApiPaymentDetails | null) =>
+    http.patch<ApiTripPayment>(`/trips/${tripId}/me/payment`, { payment }),
 
   // ─── События ─────────────────────────────────────────────────────────────
 
@@ -204,4 +241,27 @@ export const push = {
 
   unsubscribe: (endpoint: string) =>
     http.delete<{ message: string }>('/notifications/subscribe', { endpoint }),
+};
+
+// ─── Справочник банков ─────────────────────────────────────────────────────────
+
+export const banks = {
+  // Без авторизации; коды: SBERBANK, TBANK, ALFABANK, VTB (и будущие).
+  list: () => http.get<{ banks: ApiBank[] }>('/banks'),
+};
+
+// ─── Способы оплаты в профиле (СБП) ─────────────────────────────────────────────
+
+export const paymentMethods = {
+  list: () => http.get<{ paymentMethods: ApiPaymentMethod[] }>('/me/payment-methods'),
+
+  create: (body: { phone: string; banks: string[]; label?: string | null; isDefault?: boolean }) =>
+    http.post<{ paymentMethod: ApiPaymentMethod }>('/me/payment-methods', body),
+
+  // Все поля опциональны — передаём только изменяемые.
+  patch: (id: string, body: { phone?: string; banks?: string[]; label?: string | null; isDefault?: boolean }) =>
+    http.patch<{ paymentMethod: ApiPaymentMethod }>(`/me/payment-methods/${id}`, body),
+
+  remove: (id: string) =>
+    http.delete<{ message: string }>(`/me/payment-methods/${id}`),
 };

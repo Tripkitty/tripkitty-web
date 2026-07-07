@@ -10,7 +10,9 @@ import { NewExpense } from './trip/NewExpense';
 import { ExpenseLog } from './trip/ExpenseLog';
 import { Balances } from './trip/Balances';
 import { Settlements } from './trip/Settlements';
+import { MyTripPayment } from './trip/MyTripPayment';
 import { Itinerary } from './trip/Itinerary';
+import { useSettlements } from '../hooks/useSettlements';
 
 type Tab = 'participants' | 'expenses' | 'itinerary';
 
@@ -32,6 +34,9 @@ export function TripDetailPage() {
     [trip, db.users, sessionUserId],
   );
   const { idDisp, idName, idSub } = useMemo(() => disambiguate(ps, db.users), [ps, db.users]);
+
+  // Взаиморасчёты считает сервер (учитывает реквизиты получателя для toPayment).
+  const settlements = useSettlements(trip);
 
   useEffect(() => {
     if (!id) return;
@@ -104,8 +109,9 @@ export function TripDetailPage() {
             <div className="trip-col">
               <NewExpense trip={trip} ps={ps} idName={idName} />
               <ExpenseLog trip={trip} idName={idName} isOwner={isOwner} />
-              <Balances trip={trip} ps={ps} idName={idName} />
-              <Settlements trip={trip} ps={ps} idName={idName} isOwner={isOwner} />
+              <Balances trip={trip} ps={ps} idName={idName} balances={settlements.balances} />
+              <MyTripPayment tripId={trip.id} onChanged={settlements.reload} />
+              <Settlements trip={trip} ps={ps} idName={idName} isOwner={isOwner} transactions={settlements.transactions} />
             </div>
           )}
 

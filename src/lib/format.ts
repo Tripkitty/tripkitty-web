@@ -35,6 +35,15 @@ export function fmt(n: number, cur: string): string {
   return (neg ? '−' : '') + s + ' ' + (cur || '');
 }
 
+// Телефон СБП: сервер нормализует к +7XXXXXXXXXX; красиво разбиваем на «+7 999 123-45-67».
+// Если строка не в ожидаемом формате — возвращаем как есть.
+export function formatPhone(phone: string): string {
+  const d = (phone || '').replace(/\D/g, '');
+  const ten = d.length === 11 && (d[0] === '7' || d[0] === '8') ? d.slice(1) : d;
+  if (ten.length !== 10) return phone || '';
+  return `+7 ${ten.slice(0, 3)} ${ten.slice(3, 6)}-${ten.slice(6, 8)}-${ten.slice(8, 10)}`;
+}
+
 const MONTHS = [
   'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
   'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',

@@ -457,6 +457,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           lastName: g.lastName,
           firstName: g.firstName,
           middleName: g.middleName || null,
+          paymentDetails: g.paymentDetails ?? null,
         });
         // Используем id и вычисленное name от сервера, не локальные.
         _dispatch({ type: 'addGuest', tripId: action.tripId, guest: mapApiGuest(guest) });

@@ -5,6 +5,7 @@ import { useToast } from '../hooks/useToast';
 import { disp } from '../lib/format';
 import { HeaderBand } from '../components/HeaderBand';
 import { Avatar } from '../components/Avatar';
+import { PaymentMethods } from './PaymentMethods';
 import { friends as friendsApi } from '../api/api';
 import { ApiError } from '../api/http';
 
@@ -88,6 +89,9 @@ export function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Карточка способов оплаты (СБП) */}
+      <PaymentMethods />
 
       {/* Карточка друзей */}
       <div className="card">

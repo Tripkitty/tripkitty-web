@@ -134,7 +134,7 @@ realtime-обновления вместо cross-tab `storage`-события.
 |---|---|---|---|
 | `POST` | `/trips/{id}/expenses` | `{ title, amount, payer, splitType, share[] }` | Добавить расход. ← `addExpense` / `NewExpense` |
 | `DELETE` | `/trips/{id}/expenses/{expenseId}` | — | Удалить. ← `removeExpense` |
-| `GET` | `/trips/{id}/settlements` | — | Балансы + минимальный набор переводов `{ bal, tx }`. ← `computeSettlements` |
+| `GET` | `/trips/{id}/settlements` | — | Балансы + минимальный набор переводов. Каждый перевод несёт `toPayment` — реквизиты получателя (СБП), см. §3.8. ← `computeSettlements` |
 
 Способы разбивки (`splitType`, элементы `share` — `{ participantId, weight?, amount? }`):
 - `0` Equal — поровну между участниками `share` (поля `weight`/`amount` не нужны);
@@ -171,6 +171,30 @@ realtime-обновления вместо cross-tab `storage`-события.
 
 Заменяет `Repository.subscribe`. Сервер шлёт `{ type, payload }`, клиент применяет через reducer.
 Минимально достаточно слать «измени поездку X» → клиент делает refetch `/trips/{id}`.
+
+### 3.8 Реквизиты и способы оплаты (СБП)
+
+Три уровня реквизитов `{ phone, banks[], label }` (`phone` нормализуется к `+7XXXXXXXXXX`, только RU →
+иначе `INVALID_PHONE`; `banks` — непустой список кодов из `GET /banks` → иначе `INVALID_BANK`):
+
+1. **Способы оплаты в профиле** — глобальный список пользователя.
+2. **Override в поездке** — опциональные реквизиты поверх профиля; нет override → дефолт из профиля.
+3. **Реквизиты гостя** — хранятся на госте (задаются при добавлении, `POST /trips/{id}/guests`).
+
+| Метод | Путь | Тело | Назначение |
+|---|---|---|---|
+| `GET` | `/banks` | — | Справочник банков `{ banks: [{ code, name }] }` (без авторизации). |
+| `GET` | `/me/payment-methods` | — | Список способов `{ paymentMethods: [PaymentMethodDto] }`. |
+| `POST` | `/me/payment-methods` | `{ phone, banks[], label?, isDefault? }` | Добавить способ. Первый становится дефолтным. |
+| `PATCH` | `/me/payment-methods/{id}` | частичное | Изменить; `isDefault:true` снимает флаг с прочих. |
+| `DELETE` | `/me/payment-methods/{id}` | — | Удалить; дефолт переходит к любому оставшемуся. |
+| `GET` | `/trips/{id}/me/payment` | — | Эффективные реквизиты `{ payment, source }`, `source`: `trip`/`profile`/`none`. |
+| `PATCH` | `/trips/{id}/me/payment` | `{ payment }` | Задать override; `payment:null` — сбросить к профилю. |
+
+`PaymentMethodDto` = `{ id, phone, banks[], label, isDefault }`. Реквизиты к расходу **не** привязываются —
+куда переводить, определяется на этапе взаиморасчётов по `toPayment` получателя в `GET /settlements` (§3.5).
+Клиент: `src/api/api.ts` (`banks`, `paymentMethods`, `trips.getMyPayment/setMyPayment`), UI —
+`PaymentMethods` (профиль), `MyTripPayment` (поездка), `BankPicker`, реквизиты гостя в `Participants`.
 
 ---
 

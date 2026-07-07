@@ -7,11 +7,14 @@ type Props = {
   trip: Trip;
   ps: Participant[];
   idName: Record<string, string>;
+  // Серверные балансы (источник правды); при недоступности — локальный расчёт как фолбэк.
+  balances?: Record<string, number> | null;
 };
 
 // Баланс по участникам: знак и цвет суммы + текстовая заметка.
-export function Balances({ trip, ps, idName }: Props) {
-  const { bal } = useMemo(() => computeSettlements(ps, trip.expenses), [ps, trip.expenses]);
+export function Balances({ trip, ps, idName, balances }: Props) {
+  const local = useMemo(() => computeSettlements(ps, trip.expenses).bal, [ps, trip.expenses]);
+  const bal = balances ?? local;
 
   return (
     <section className="trip-block">
