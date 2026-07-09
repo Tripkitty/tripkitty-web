@@ -4,6 +4,8 @@ import { plural } from '../../lib/format';
 import { Avatar } from '../../components/Avatar';
 import { GuestModal } from '../../components/GuestModal';
 import { AddParticipantModal } from '../../components/AddParticipantModal';
+import { useToast } from '../../hooks/useToast';
+import { ApiError } from '../../api/http';
 import type { Guest, Participant, Trip, User } from '../../types';
 
 type Props = {
@@ -16,9 +18,32 @@ type Props = {
 
 export function Participants({ trip, ps, idDisp, idSub, me }: Props) {
   const { db, dispatch } = useStore();
+  const toast = useToast();
   // null — модалка закрыта; { guest: null } — добавление, { guest } — редактирование.
   const [guestModal, setGuestModal] = useState<{ guest: Guest | null } | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+
+  // Нет каскадного удаления на сервере: если участник фигурирует в расходах,
+  // 409 PARTICIPANT_HAS_EXPENSES — показываем, какие расходы мешают удалению.
+  const removeParticipant = async (participantId: string) => {
+    try {
+      await dispatch({ type: 'removeParticipant', tripId: trip.id, participantId });
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'PARTICIPANT_HAS_EXPENSES') {
+        const ids = (e.details as { expenseIds?: string[] } | null)?.expenseIds ?? [];
+        const titles = trip.expenses
+          .filter((exp) => ids.includes(exp.id))
+          .map((exp) => exp.title);
+        toast.error(
+          titles.length
+            ? `Сначала удалите или переназначьте расходы: ${titles.join(', ')}`
+            : 'Нельзя удалить участника, пока на нём есть расходы',
+        );
+      } else {
+        toast.error('Не удалось убрать участника');
+      }
+    }
+  };
 
   // Есть ли у гостя реквизиты для перевода (детали — на экране редактирования/взаиморасчётов).
   const guestHasPay = (p: Participant): boolean =>
@@ -73,7 +98,7 @@ export function Participants({ trip, ps, idDisp, idSub, me }: Props) {
                   type="button"
                   className="member-act remove"
                   title="Убрать участника"
-                  onClick={() => dispatch({ type: 'removeParticipant', tripId: trip.id, participantId: p.id })}
+                  onClick={() => removeParticipant(p.id)}
                 >
                   ✕
                 </button>
@@ -124,7 +149,7 @@ export function Participants({ trip, ps, idDisp, idSub, me }: Props) {
                     type="button"
                     className="member-act remove"
                     title="Убрать гостя"
-                    onClick={() => dispatch({ type: 'removeParticipant', tripId: trip.id, participantId: p.id })}
+                    onClick={() => removeParticipant(p.id)}
                   >
                     ✕
                   </button>

@@ -542,8 +542,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
 
       case 'removeParticipant': {
+        // Сервер блокирует удаление 409 PARTICIPANT_HAS_EXPENSES, если участник есть
+        // в расходах (нет каскадного удаления) — ошибка пробрасывается вызывающей стороне.
         await api.trips.removeParticipant(action.tripId, action.participantId);
-        // Каскад может затронуть расходы — перезагружаем поездку.
         const { trip: fresh } = await api.trips.get(action.tripId);
         const { trip: dt, users } = mapApiTripDetail(fresh);
         _dispatch({

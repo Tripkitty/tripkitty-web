@@ -121,11 +121,12 @@ realtime-обновления вместо cross-tab `storage`-события.
 | `PATCH` | `/trips/{id}/guests/{guestId}` | `{ lastName?, firstName?, middleName?, paymentDetails?, clearPayment? }` | Обновить ФИО/реквизиты гостя (любой участник; If-Match не нужен). ФИО — как у `/auth/me`. `paymentDetails` задан → задать/заменить; `clearPayment:true` (без `paymentDetails`) → сброс в `null`; ни того ни другого → не менять. Шлёт `trip:updated` по SignalR. ← `updateGuest` |
 | `DELETE` | `/trips/{id}/participants/{participantId}` | — | Удалить участника (member или guest). ← `removeParticipant` |
 
-**Каскад при удалении участника** (критично — порт из `reducer.removeParticipant`, выполнять на сервере атомарно):
-1. убрать участника из `members` или `guests`;
-2. удалить все расходы, где он `payer`;
-3. вычистить его id из `share` остальных расходов;
-4. **отбросить расходы с опустевшим `share`**.
+**Удаление участника без каскада**: если участник фигурирует хоть в одном расходе (как `payer`
+или в чьём-либо `share`), сервер отвечает `409 PARTICIPANT_HAS_EXPENSES` с `error.details.expenseIds` —
+списком блокирующих расходов. Клиент должен сначала удалить/переназначить эти расходы
+(`DELETE /trips/{id}/expenses/{expenseId}` либо `PATCH` с новым `payer`/`share`) и повторить удаление.
+`removeParticipant` в `StoreContext.tsx` пробрасывает `ApiError`, UI (`Participants.tsx`) ловит
+`PARTICIPANT_HAS_EXPENSES` и показывает названия блокирующих расходов тостом.
 
 Бизнес-правило для `addMember`: добавлять можно только из числа друзей (или участников, у кого есть доступ —
 определить политику). Гостей может добавлять любой участник.
@@ -256,7 +257,7 @@ realtime-обновления вместо cross-tab `storage`-события.
 
 1. **Auth** (`/auth/*`) + модель User с хэшем пароля + JWT.
 2. **Trips CRUD** + авторизация доступа + `GET /trips`.
-3. **Участники и расходы** + каскад удаления + `GET /settlements`.
+3. **Участники и расходы** + блокировка удаления участника с расходами (`409 PARTICIPANT_HAS_EXPENSES`) + `GET /settlements`.
 4. **Друзья** (граф, заявки, авто-accept встречной заявки).
 5. **События** + `calendar.ics`.
 6. **Realtime** (WS) вместо cross-tab подписки.
