@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Bank } from '../types';
 
 type Props = {
@@ -8,22 +9,36 @@ type Props = {
   invalid?: boolean;
 };
 
-type Pos = { top: number; left: number; width: number };
+type Pos = { left: number; width: number; maxHeight: number } & ({ top: number; bottom?: undefined } | { bottom: number; top?: undefined });
 
 // Мультивыбор банков для СБП: выпадающий список с чекбоксами. Список банков приходит
 // из /banks, поэтому при добавлении новых банков на сервере фронт менять не нужно.
 // Панель — position: fixed с координатами от кнопки-триггера, а не position: absolute:
 // `.card` (в котором обычно лежит форма реквизитов) задаёт overflow: hidden и обрезал бы
 // абсолютно спозиционированную панель по границе карточки.
+// Рендерится через createPortal в document.body: без портала панель остаётся в DOM внутри
+// `.modal-sheet` (см. Modal.tsx), у которого есть CSS-анимация transform — это создаёт
+// containing block для position: fixed-потомков и обрезает панель по границе модалки.
 export function BankPicker({ banks, selected, onChange, invalid }: Props) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<Pos | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const reposition = () => {
     const r = triggerRef.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 6, left: r.left, width: r.width });
+    if (!r) return;
+    const margin = 6;
+    const spaceBelow = window.innerHeight - r.bottom - margin;
+    const spaceAbove = r.top - margin;
+    // Открываем вверх, если снизу мало места, а сверху его заметно больше — иначе список
+    // упирается в нижний край экрана/модалки и выглядит обрезанным.
+    if (spaceBelow < 200 && spaceAbove > spaceBelow) {
+      setPos({ bottom: window.innerHeight - r.top + margin, left: r.left, width: r.width, maxHeight: Math.min(260, spaceAbove) });
+    } else {
+      setPos({ top: r.bottom + margin, left: r.left, width: r.width, maxHeight: Math.min(260, spaceBelow) });
+    }
   };
 
   const openPanel = () => {
@@ -34,7 +49,10 @@ export function BankPicker({ banks, selected, onChange, invalid }: Props) {
   useEffect(() => {
     if (!open) return;
     const onDocDown = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      // Панель — портал в document.body: клик по ней не входит в rootRef, проверяем отдельно.
+      if (rootRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
@@ -94,12 +112,13 @@ export function BankPicker({ banks, selected, onChange, invalid }: Props) {
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
-      {open && pos && (
+      {open && pos && createPortal(
         <div
+          ref={panelRef}
           className="bank-picker-panel"
           role="listbox"
           aria-multiselectable="true"
-          style={{ top: pos.top, left: pos.left, width: pos.width }}
+          style={{ top: pos.top, bottom: pos.bottom, left: pos.left, width: pos.width, maxHeight: pos.maxHeight }}
         >
           {banks.map((b) => {
             const on = selected.includes(b.code);
@@ -123,7 +142,8 @@ export function BankPicker({ banks, selected, onChange, invalid }: Props) {
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

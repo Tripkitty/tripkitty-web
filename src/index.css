@@ -1384,7 +1384,7 @@ button.participant-chip:hover {
 }
 .bank-picker-panel {
   position: fixed;
-  z-index: 1200;
+  z-index: 1300;
   max-height: 260px;
   overflow-y: auto;
   display: flex;
@@ -1715,4 +1715,78 @@ button.participant-chip:hover {
 @keyframes whatsnew-pop {
   from { transform: translateY(12px) scale(0.98); opacity: 0; }
   to { transform: none; opacity: 1; }
+}
+
+/* ===== Универсальное модальное окно ===== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.42);
+  animation: whatsnew-fade 0.2s ease-out;
+  padding: 0;
+}
+.modal-sheet {
+  width: min(460px, 100%);
+  max-height: 88dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-bottom: none;
+  border-radius: 20px 20px 0 0;
+  padding: 18px 20px calc(18px + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.22);
+  animation: whatsnew-up 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.modal-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--heading);
+}
+.modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.modal-close:hover {
+  color: var(--heading);
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
+}
+.modal-body {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+@media (min-width: 620px) {
+  .modal-backdrop {
+    align-items: center;
+    padding: 20px;
+  }
+  .modal-sheet {
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+    animation: whatsnew-pop 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  }
 }
