@@ -72,10 +72,7 @@ export function ExpenseLog({ trip, ps, idName, isOwner, status }: Props) {
             return (
               <div key={e.id} className={'log-row' + (e.isTransfer ? ' transfer' : '')}>
                 <div className="log-main">
-                  <div className="log-title">
-                    {e.title}
-                    {e.isTransfer && <span className="log-transfer-tag">перевод</span>}
-                  </div>
+                  <div className="log-title">{e.title}</div>
                   <div className="hint">{shareLabel}</div>
                 </div>
                 <div className="log-side">
