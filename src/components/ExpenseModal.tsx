@@ -93,12 +93,16 @@ export function ExpenseModal({ trip, ps, idName, expense, onClose }: Props) {
 
     setSaving(true);
     try {
-      await dispatch({
+      const res = await dispatch({
         type: 'editExpense',
         tripId: trip.id,
         expense: { ...expense, title: t, amount: amt, payer: effPayer, splitType, share },
       });
-      toast.success('Расход обновлён');
+      if (res?.warning === 'TRIP_HAS_PAID_TRANSFERS') {
+        toast.info('В поездке уже есть оплаченные переводы — их остатки будут пересчитаны');
+      } else {
+        toast.success('Расход обновлён');
+      }
       onClose();
     } catch (e) {
       if (e instanceof ApiError && e.code === 'TRIP_SETTLING') {

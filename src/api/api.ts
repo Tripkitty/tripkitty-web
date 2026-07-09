@@ -198,8 +198,10 @@ export const trips = {
     http.post<{ expense: ApiExpense }>(`/trips/${tripId}/expenses`, { title, amount, payer, splitType, share }),
 
   // Полная замена расхода (как у addExpense) — частичного PATCH здесь нет.
+  // warning: "TRIP_HAS_PAID_TRANSFERS" — в поездке уже есть оплаченные переводы,
+  // правка может пересчитать чей-то остаток долга (не ошибка, 200 OK).
   patchExpense: (tripId: string, expenseId: string, title: string, amount: number, payer: string, splitType: number, share: ApiExpenseShare[]) =>
-    http.patch<{ expense: ApiExpense }>(`/trips/${tripId}/expenses/${expenseId}`, { title, amount, payer, splitType, share }),
+    http.patch<{ expense: ApiExpense; warning: string | null }>(`/trips/${tripId}/expenses/${expenseId}`, { title, amount, payer, splitType, share }),
 
   removeExpense: (tripId: string, expenseId: string) =>
     http.delete<{ message: string }>(`/trips/${tripId}/expenses/${expenseId}`),

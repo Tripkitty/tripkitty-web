@@ -8,7 +8,7 @@ import { reducer, type State } from './reducer';
 import type { Action } from './actions';
 import type { DB, Trip, User } from '../types';
 
-export type AsyncDispatch = (action: Action) => Promise<void>;
+export type AsyncDispatch = (action: Action) => Promise<{ warning?: string | null } | void>;
 
 type StoreValue = State & {
   dispatch: AsyncDispatch;
@@ -634,7 +634,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
 
       case 'editExpense': {
-        await api.trips.patchExpense(
+        const { warning } = await api.trips.patchExpense(
           action.tripId,
           action.expense.id,
           action.expense.title,
@@ -654,7 +654,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             trips: curPE.db.trips.map((t) => (t.id === dtPE.id ? dtPE : t)),
           },
         });
-        return;
+        return { warning };
       }
 
       case 'removeExpense': {
