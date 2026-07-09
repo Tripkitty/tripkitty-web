@@ -1337,31 +1337,98 @@ button.participant-chip:hover {
 
 /* ===== Реквизиты / СБП ===== */
 
-/* Выбор банков — чипы-переключатели */
+/* Выбор банков — выпадающий список с чекбоксами (множественный выбор) */
 .bank-picker {
+  position: relative;
+}
+.bank-picker-trigger {
+  width: 100%;
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
-}
-.bank-chip {
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 13.5px;
-  font-weight: 600;
-  font-family: Onest, sans-serif;
+  background: var(--field);
   border: 1.5px solid var(--field-bd);
-  background: var(--chip);
-  color: var(--chip-tx);
+  border-radius: 13px;
+  padding: 15px 18px;
+  font-size: 15px;
+  font-weight: 500;
+  font-family: Onest, sans-serif;
+  color: var(--text);
   cursor: pointer;
-  transition: all 0.12s;
+  transition: border-color 0.12s;
 }
-.bank-chip.on {
+.bank-picker-trigger:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+.bank-picker-trigger.placeholder .bank-picker-summary {
+  color: var(--muted);
+}
+.bank-picker-trigger.invalid {
+  border-color: var(--err);
+  background: color-mix(in srgb, var(--err) 7%, var(--field));
+}
+.bank-picker-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bank-picker-chevron {
+  flex: none;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+.bank-picker-chevron.open {
+  transform: rotate(180deg);
+}
+.bank-picker-panel {
+  position: fixed;
+  z-index: 1200;
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--card);
+  border: 1.5px solid var(--field-bd);
+  border-radius: 13px;
+  padding: 6px;
+  box-shadow: 0 16px 44px -26px rgba(20, 25, 40, 0.4);
+}
+.bank-picker-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 14.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.bank-picker-option:hover {
+  background: var(--field);
+}
+.bank-picker-checkbox {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  border: 1.5px solid var(--field-bd);
+  color: #fff;
+}
+.bank-picker-option.on .bank-picker-checkbox {
   border-color: transparent;
   background: var(--chip-on);
   color: var(--chip-on-tx);
-}
-.bank-picker.invalid .bank-chip {
-  border-color: var(--err);
 }
 
 /* Форма реквизитов (профиль / поездка / гость) */
