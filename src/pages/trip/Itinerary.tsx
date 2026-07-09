@@ -65,7 +65,7 @@ export function Itinerary({ trip, isOwner }: { trip: Trip; isOwner: boolean }) {
     !ev.time ? 'весь день' : ev.endTime ? ev.time + ' – ' + ev.endTime : ev.time;
 
   return (
-    <div className="itinerary">
+    <section className="trip-block itinerary">
       <div className="block-head">
         <div>
           <h2 className="itinerary-title">Программа поездки</h2>
@@ -198,6 +198,6 @@ export function Itinerary({ trip, isOwner }: { trip: Trip; isOwner: boolean }) {
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }
