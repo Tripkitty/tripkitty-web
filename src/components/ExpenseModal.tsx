@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal } from './Modal';
 import { useStore } from '../hooks/useStore';
 import { useToast } from '../hooks/useToast';
+import { ApiError } from '../api/http';
 import { fmt } from '../lib/format';
 import type { Expense, ExpenseShare, Participant, SplitType, Trip } from '../types';
 
@@ -99,8 +100,14 @@ export function ExpenseModal({ trip, ps, idName, expense, onClose }: Props) {
       });
       toast.success('Расход обновлён');
       onClose();
-    } catch {
-      toast.error('Не удалось сохранить расход');
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'TRIP_SETTLING') {
+        toast.error('Подсчёт завершён — изменения расходов заблокированы');
+      } else if (e instanceof ApiError && e.code === 'TRANSFER_READONLY') {
+        toast.error('Расход-перевод нельзя редактировать');
+      } else {
+        toast.error('Не удалось сохранить расход');
+      }
     } finally {
       setSaving(false);
     }

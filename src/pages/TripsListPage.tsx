@@ -47,6 +47,7 @@ export function TripsListPage() {
           ownerId: me.id,
           start,
           end,
+          status: 'active',
           members: [me.id],
           guests: [],
           expenses: [],

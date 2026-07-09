@@ -1,5 +1,5 @@
 // Маппинг между DTO API и доменными типами фронтенда.
-import type { Expense, Guest, SplitType, Trip, TripEvent, User } from '../types';
+import type { Expense, Guest, SplitType, Trip, TripEvent, TripStatus, User } from '../types';
 import type { ApiExpense, ApiFriendDto, ApiGuest, ApiTripDetail, ApiTripEvent, ApiUser } from './api';
 
 // Валюта: API использует коды (RUB), фронтенд — глифы (₽).
@@ -72,7 +72,13 @@ export function mapApiExpense(e: ApiExpense): Expense {
       amount: s.amount ?? undefined,
     })),
     createdBy: e.createdBy,
+    isTransfer: e.isTransfer ?? false,
   };
+}
+
+// Нормализация статуса подсчёта; неизвестное значение считаем active.
+export function mapTripStatus(s: string | undefined): TripStatus {
+  return s === 'settling' || s === 'settled' ? s : 'active';
 }
 
 export function mapApiGuest(g: ApiGuest): Guest {
@@ -111,6 +117,7 @@ export function mapApiTripDetail(t: ApiTripDetail): { trip: Trip; users: Record<
     start: t.start ?? '',
     end: t.end ?? '',
     version: t.version,
+    status: mapTripStatus(t.status),
     members: t.members.map((m) => m.id),
     guests: t.guests.map(mapApiGuest),
     expenses: t.expenses.map(mapApiExpense),

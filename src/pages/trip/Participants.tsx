@@ -6,7 +6,7 @@ import { GuestModal } from '../../components/GuestModal';
 import { AddParticipantModal } from '../../components/AddParticipantModal';
 import { useToast } from '../../hooks/useToast';
 import { ApiError } from '../../api/http';
-import type { Guest, Participant, Trip, User } from '../../types';
+import type { Guest, Participant, Trip, TripStatus, User } from '../../types';
 
 type Props = {
   trip: Trip;
@@ -14,14 +14,18 @@ type Props = {
   idDisp: Record<string, string>;
   idSub: Record<string, string>;
   me: User;
+  status: TripStatus;
 };
 
-export function Participants({ trip, ps, idDisp, idSub, me }: Props) {
+export function Participants({ trip, ps, idDisp, idSub, me, status }: Props) {
   const { db, dispatch } = useStore();
   const toast = useToast();
   // null — модалка закрыта; { guest: null } — добавление, { guest } — редактирование.
   const [guestModal, setGuestModal] = useState<{ guest: Guest | null } | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  // Подсчёт зафиксирован — добавление/удаление участников и гостей заблокировано
+  // сервером (409 TRIP_SETTLING); редактирование профиля гостя разрешено.
+  const canMutate = status === 'active';
 
   // Нет каскадного удаления на сервере: если участник фигурирует в расходах,
   // 409 PARTICIPANT_HAS_EXPENSES — показываем, какие расходы мешают удалению.
@@ -29,7 +33,9 @@ export function Participants({ trip, ps, idDisp, idSub, me }: Props) {
     try {
       await dispatch({ type: 'removeParticipant', tripId: trip.id, participantId });
     } catch (e) {
-      if (e instanceof ApiError && e.code === 'PARTICIPANT_HAS_EXPENSES') {
+      if (e instanceof ApiError && e.code === 'TRIP_SETTLING') {
+        toast.error('Подсчёт завершён — состав участников заблокирован');
+      } else if (e instanceof ApiError && e.code === 'PARTICIPANT_HAS_EXPENSES') {
         const ids = (e.details as { expenseIds?: string[] } | null)?.expenseIds ?? [];
         const titles = trip.expenses
           .filter((exp) => ids.includes(exp.id))
@@ -77,13 +83,15 @@ export function Participants({ trip, ps, idDisp, idSub, me }: Props) {
       <div className="member-group">
         <div className="member-group-head">
           <span>Зарегистрированные</span>
-          <button
-            type="button"
-            className="member-add-btn"
-            onClick={() => setAddOpen(true)}
-          >
-            + участник
-          </button>
+          {canMutate && (
+            <button
+              type="button"
+              className="member-add-btn"
+              onClick={() => setAddOpen(true)}
+            >
+              + участник
+            </button>
+          )}
         </div>
         <div className="member-list">
           {accounts.map((p) => (
@@ -93,7 +101,7 @@ export function Participants({ trip, ps, idDisp, idSub, me }: Props) {
                 <div className="member-name">{idDisp[p.id]}</div>
                 {userSub(p) && <div className="member-sub">{userSub(p)}</div>}
               </div>
-              {!p.isOwner && (
+              {!p.isOwner && canMutate && (
                 <button
                   type="button"
                   className="member-act remove"
@@ -112,13 +120,15 @@ export function Participants({ trip, ps, idDisp, idSub, me }: Props) {
       <div className="member-group">
         <div className="member-group-head">
           <span>Гости</span>
-          <button
-            type="button"
-            className="member-add-btn"
-            onClick={() => setGuestModal({ guest: null })}
-          >
-            + гость
-          </button>
+          {canMutate && (
+            <button
+              type="button"
+              className="member-add-btn"
+              onClick={() => setGuestModal({ guest: null })}
+            >
+              + гость
+            </button>
+          )}
         </div>
         {guests.length > 0 ? (
           <div className="member-list">
@@ -145,14 +155,16 @@ export function Participants({ trip, ps, idDisp, idSub, me }: Props) {
                   >
                     ✎
                   </button>
-                  <button
-                    type="button"
-                    className="member-act remove"
-                    title="Убрать гостя"
-                    onClick={() => removeParticipant(p.id)}
-                  >
-                    ✕
-                  </button>
+                  {canMutate && (
+                    <button
+                      type="button"
+                      className="member-act remove"
+                      title="Убрать гостя"
+                      onClick={() => removeParticipant(p.id)}
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
               );
             })}

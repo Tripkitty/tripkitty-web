@@ -1541,6 +1541,102 @@ button.participant-chip:hover {
   opacity: 0.6;
 }
 
+/* Финализация подсчёта: бейдж статуса, отметки об оплате, кнопки владельца */
+.settle-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.settle-status {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--hdr-tx);
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+.settle-status.ok {
+  background: color-mix(in srgb, var(--pos) 28%, transparent);
+}
+.settle-row.paid {
+  opacity: 0.55;
+}
+.settle-row.paid .settle-names {
+  text-decoration: line-through;
+}
+.settle-paid-btn {
+  align-self: flex-start;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  background: none;
+  color: var(--hdr-tx);
+  font-weight: 600;
+  font-size: 12.5px;
+  padding: 6px 12px;
+  transition: background 0.12s, border-color 0.12s;
+}
+.settle-paid-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+.settle-paid-btn.on {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--pos) 30%, transparent);
+}
+.settle-paid-btn:disabled {
+  opacity: 0.5;
+}
+.settle-paid-mark {
+  align-self: flex-start;
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--hdr-tx);
+  opacity: 0.7;
+}
+.settle-paid-mark.on {
+  font-style: normal;
+  opacity: 1;
+}
+.settle-reopen {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--hdr-tx);
+  opacity: 0.8;
+  font-weight: 600;
+  font-size: 13.5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 0;
+}
+.settle-reopen:hover:not(:disabled) {
+  opacity: 1;
+}
+.settle-reopen:disabled {
+  opacity: 0.4;
+}
+
+/* Расход-перевод в журнале (isTransfer): read-only, помечен бейджем */
+.log-transfer-tag {
+  display: inline-block;
+  margin-left: 8px;
+  vertical-align: 1px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.log-row.transfer .log-title {
+  color: var(--muted);
+}
+
 /* ===== Мобильная адаптация списков (в конце файла — правила выше не должны
    переопределять этот медиазапрос при равной специфичности) ===== */
 @media (max-width: 480px) {

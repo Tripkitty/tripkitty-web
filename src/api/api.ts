@@ -22,6 +22,7 @@ export type ApiTripSummary = {
   start: string | null;
   end: string | null;
   version: number;
+  status: string; // 'active' | 'settling' | 'settled'
 };
 
 export type ApiExpenseShare = {
@@ -38,6 +39,7 @@ export type ApiExpense = {
   splitType: number;
   share: ApiExpenseShare[];
   createdBy: string;
+  isTransfer?: boolean;
 };
 
 export type ApiTripEvent = {
@@ -96,10 +98,22 @@ export type ApiFriendDto = {
   email?: string;
 };
 
-export type ApiSettlements = {
-  balances: Record<string, number>;
+export type ApiSettlementTx = {
+  from: string;
+  to: string;
+  amount: number;
   // toPayment — реквизиты получателя (to), куда переводить; null, если у него их нет.
-  transactions: { from: string; to: string; amount: number; toPayment?: ApiPaymentDetails | null }[];
+  toPayment?: ApiPaymentDetails | null;
+  // id/isPaid/paidAt заполнены только после финализации (§5.5); при status 'active' — null.
+  id?: string | null;
+  isPaid?: boolean | null;
+  paidAt?: string | null;
+};
+
+export type ApiSettlements = {
+  status: string; // 'active' | 'settling' | 'settled'
+  balances: Record<string, number>;
+  transactions: ApiSettlementTx[];
 };
 
 // ─── Аутентификация ──────────────────────────────────────────────────────────
@@ -192,6 +206,22 @@ export const trips = {
 
   getSettlements: (tripId: string) =>
     http.get<ApiSettlements>(`/trips/${tripId}/settlements`),
+
+  // ─── Финализация подсчёта (§5.5) ────────────────────────────────────────
+
+  // Завершить подсчёт (только владелец): фиксирует транзакции, статус → settling
+  // (или сразу settled, если переводить нечего). Повторно — 409 ALREADY_FINALIZED.
+  finalizeSettlement: (tripId: string) =>
+    http.post<{ settlements: ApiSettlements }>(`/trips/${tripId}/settlement`),
+
+  // Отметить оплату перевода (или снять отметку). До финализации — 409 NOT_FINALIZED.
+  setTransactionPaid: (tripId: string, txId: string, paid: boolean) =>
+    http.patch<{ settlements: ApiSettlements }>(`/trips/${tripId}/settlement/transactions/${txId}`, { paid }),
+
+  // Переоткрыть подсчёт (только владелец): статус → active, неоплаченные транзакции
+  // удаляются, оплаченные конвертируются в расходы-переводы (isTransfer).
+  reopenSettlement: (tripId: string) =>
+    http.post<{ settlements: ApiSettlements }>(`/trips/${tripId}/settlement/reopen`),
 
   // ─── Мои реквизиты в поездке (override поверх профиля) ────────────────────
 

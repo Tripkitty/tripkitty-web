@@ -3,7 +3,7 @@ import * as api from '../api/api';
 import { connectHub, disconnectHub, onHubEvent } from '../api/signalr';
 import { refreshOnce } from '../api/http';
 import { clearTokens, getRefreshToken } from '../api/tokens';
-import { mapApiGuest, mapApiTripDetail, mapApiUser, mapFriendDto, curToCode } from '../api/mappers';
+import { mapApiGuest, mapApiTripDetail, mapApiUser, mapFriendDto, mapTripStatus, curToCode } from '../api/mappers';
 import { reducer, type State } from './reducer';
 import type { Action } from './actions';
 import type { DB, Trip, User } from '../types';
@@ -239,6 +239,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           _dispatch({ type: 'removeEvent', tripId, eventId });
           break;
         }
+        case 'settlement:updated': {
+          // Транзакции/балансы применяет useSettlements собственной подпиской;
+          // здесь обновляем только trip.status. Переход в active (reopen) добавляет
+          // на сервере расходы-переводы, которых нет в payload — полный рефетч.
+          const { tripId, settlements } = event.payload;
+          const status = mapTripStatus(settlements.status);
+          const curTrip = stateRef.current.db.trips.find((t) => t.id === tripId);
+          if (!curTrip || curTrip.status === status) break;
+          if (status === 'active') {
+            api.trips.get(tripId).then(({ trip }) => {
+              const { trip: dt, users } = mapApiTripDetail(trip);
+              const cur = stateRef.current;
+              _dispatch({
+                type: 'externalDB',
+                db: {
+                  ...cur.db,
+                  users: mergeUsers(cur.db.users, users),
+                  trips: cur.db.trips.map((t) => (t.id === dt.id ? dt : t)),
+                },
+              });
+            }).catch(() => {});
+          } else {
+            const cur = stateRef.current;
+            _dispatch({
+              type: 'externalDB',
+              db: {
+                ...cur.db,
+                trips: cur.db.trips.map((t) => (t.id === tripId ? { ...t, status } : t)),
+              },
+            });
+          }
+          break;
+        }
         case 'member:added': {
           const { tripId, id: userId } = event.payload;
           _dispatch({ type: 'addMember', tripId, userId });
@@ -342,6 +375,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       case 'externalDB':
         _dispatch(action);
         return;
+
+      // ── Синхронизация ──────────────────────────────────────────────────────
+
+      case 'refetchTrip': {
+        const { trip: fresh } = await api.trips.get(action.tripId);
+        const { trip: dt, users } = mapApiTripDetail(fresh);
+        const cur = stateRef.current;
+        _dispatch({
+          type: 'externalDB',
+          db: {
+            ...cur.db,
+            users: mergeUsers(cur.db.users, users),
+            trips: cur.db.trips.map((t) => (t.id === dt.id ? dt : t)),
+          },
+        });
+        return;
+      }
 
       // ── Профиль ────────────────────────────────────────────────────────────
 

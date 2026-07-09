@@ -59,6 +59,9 @@ export type Expense = {
   splitType: SplitType;
   share: ExpenseShare[]; // участники, между которыми делится расход
   createdBy: string; // id пользователя
+  // Служебный расход-перевод, созданный сервером при переоткрытии подсчёта;
+  // редактировать/удалять нельзя (409 TRANSFER_READONLY).
+  isTransfer?: boolean;
 };
 
 export type TripEvent = {
@@ -70,6 +73,10 @@ export type TripEvent = {
   createdBy: string;
 };
 
+// Стадия подсчёта поездки: active — накидываем расходы; settling — подсчёт
+// зафиксирован, участники переводят деньги; settled — все переводы оплачены.
+export type TripStatus = 'active' | 'settling' | 'settled';
+
 export type Trip = {
   id: string;
   name: string;
@@ -78,6 +85,7 @@ export type Trip = {
   start: string; // 'YYYY-MM-DD' или ''
   end: string; // 'YYYY-MM-DD' или ''
   version?: number; // оптимистичная блокировка при PATCH /trips/{id}
+  status: TripStatus;
   members: string[]; // id пользователей
   guests: Guest[];
   expenses: Expense[];

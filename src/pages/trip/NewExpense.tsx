@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { useStore } from '../../hooks/useStore';
 import { useToast } from '../../hooks/useToast';
 import { fmt } from '../../lib/format';
-import type { Expense, ExpenseShare, Participant, SplitType, Trip } from '../../types';
+import type { Expense, ExpenseShare, Participant, SplitType, Trip, TripStatus } from '../../types';
 
 type Props = {
   trip: Trip;
   ps: Participant[];
   idName: Record<string, string>;
+  status: TripStatus;
 };
 
 const SPLIT_LABELS: Record<SplitType, string> = {
@@ -16,7 +17,7 @@ const SPLIT_LABELS: Record<SplitType, string> = {
   2: 'Своя сумма',
 };
 
-export function NewExpense({ trip, ps, idName }: Props) {
+export function NewExpense({ trip, ps, idName, status }: Props) {
   const { sessionUserId, dispatch } = useStore();
   const toast = useToast();
 
@@ -105,6 +106,19 @@ export function NewExpense({ trip, ps, idName }: Props) {
     setAmounts({});
     setBad({});
   };
+
+  // Подсчёт зафиксирован (settling/settled) — мутации денег заблокированы сервером (409 TRIP_SETTLING).
+  if (status !== 'active') {
+    return (
+      <section className="trip-block">
+        <label className="field-label">НОВЫЙ РАСХОД</label>
+        <div className="hint">
+          Подсчёт завершён — добавление расходов недоступно.
+          Владелец может переоткрыть подсчёт в блоке «Как рассчитаться».
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="trip-block">

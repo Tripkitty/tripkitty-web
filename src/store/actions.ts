@@ -6,6 +6,9 @@ import type { DB, Expense, Guest, PaymentDetails, Trip, TripEvent, User } from '
 export type Action =
   // Внешняя синхронизация (storage-событие / realtime)
   | { type: 'externalDB'; db: DB }
+  // Полный рефетч одной поездки с сервера (например, после reopen подсчёта,
+  // когда сервер создал расходы-переводы, которых нет в локальном состоянии)
+  | { type: 'refetchTrip'; tripId: string }
   // Аутентификация
   | { type: 'register'; user: User }
   | { type: 'setSession'; userId: string | null }

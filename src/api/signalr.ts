@@ -3,6 +3,7 @@
 import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr';
 import { getAccessToken } from './tokens';
 import { refreshOnce } from './http';
+import type { ApiSettlements } from './api';
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:5010';
 
@@ -55,6 +56,7 @@ export type TripHubEvent =
   | { type: 'event:added'; payload: { tripId: string } }
   | { type: 'event:updated'; payload: { tripId: string } }
   | { type: 'event:removed'; payload: { tripId: string; eventId: string } }
+  | { type: 'settlement:updated'; payload: { tripId: string; settlements: ApiSettlements } }
   | { type: 'friend:accepted'; payload: FriendAcceptedPayload }
   | { type: 'friend:request'; payload: FriendAcceptedPayload };
 
@@ -82,6 +84,7 @@ export async function connectHub(): Promise<void> {
     'expense:added', 'expense:updated', 'expense:removed',
     'member:added', 'participant:removed',
     'event:added', 'event:updated', 'event:removed',
+    'settlement:updated',
     'friend:accepted', 'friend:request',
   ];
 

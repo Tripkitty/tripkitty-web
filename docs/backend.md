@@ -45,9 +45,9 @@ realtime-обновления вместо cross-tab `storage`-события.
 | Сущность | Поля | Отличия от прототипа |
 |---|---|---|
 | **User** | `id`, `lastName`, `firstName`, `middleName?`, `name` (вычисляемое), `handle`, `email`, `friends[]`, `incoming[]`, `outgoing[]` | ФИО хранится 3 полями; `name` = «Имя Фамилия» вычисляется сервером и отдаётся во всех user-объектах. `pass` → **`passwordHash`** (bcrypt/argon2), наружу никогда не отдаётся. `email`/`handle` — уникальные индексы. |
-| **Trip** | `id`, `name`, `cur`, `ownerId`, `start`, `end`, `members[]`, `guests[]`, `version` | добавлен `version`/`updatedAt` для оптимистичной блокировки. |
+| **Trip** | `id`, `name`, `cur`, `ownerId`, `start`, `end`, `members[]`, `guests[]`, `version`, `status` | добавлен `version`/`updatedAt` для оптимистичной блокировки; `status` — стадия подсчёта `active`/`settling`/`settled` (см. §3.5a). |
 | **Guest** | `id` (`g_*`), `lastName`, `firstName`, `middleName?`, `name` (вычисляемое) | ФИО 3 полями, как у User. |
-| **Expense** | `id`, `title`, `amount`, `payer`, `splitType`, `share[]`, `createdBy` | `splitType`: 0 — поровну, 1 — по частям, 2 — точные суммы. `share` — массив `{ participantId, weight?, amount? }`. `amount` хранить аккуратно (см. §4.4 про деньги). |
+| **Expense** | `id`, `title`, `amount`, `payer`, `splitType`, `share[]`, `createdBy`, `isTransfer` | `splitType`: 0 — поровну, 1 — по частям, 2 — точные суммы. `share` — массив `{ participantId, weight?, amount? }`. `isTransfer: true` — служебный расход-перевод из reopen (§3.5a), read-only. `amount` хранить аккуратно (см. §4.4 про деньги). |
 | **TripEvent** | `id`, `title`, `date`, `time`, `endTime`, `createdBy` | без изменений. |
 
 **Граф друзей** (`friends`/`incoming`/`outgoing`) на сервере удобнее хранить отдельной таблицей рёбер
@@ -109,7 +109,7 @@ realtime-обновления вместо cross-tab `storage`-события.
 | `POST` | `/trips` | `{ name, cur }` | Создать. `ownerId = me`, `members = [me]`. ← `createTrip` |
 | `GET` | `/trips/{id}` | — | Полная поездка (members, guests, expenses, events). ← `TripDetailPage` |
 | `PATCH` | `/trips/{id}` | `{ name?, start?, end? }` | Переименование/даты. ← `renameTrip`, `setTripStart`, `setTripEnd` |
-| `POST` | `/trips/{id}/clear` | — | Очистить: `expenses=[]`, `guests=[]` (members и даты остаются). ← `clearTrip` |
+| `POST` | `/trips/{id}/clear` | — | Очистить: `expenses=[]`, `guests=[]`, зафиксированный подсчёт; `status` → `active` (members и даты остаются). ← `clearTrip` |
 | `DELETE` | `/trips/{id}` | — | Удалить поездку. ← `deleteTrip` |
 
 ### 3.4 Участники
@@ -136,8 +136,9 @@ realtime-обновления вместо cross-tab `storage`-события.
 | Метод | Путь | Тело | Назначение |
 |---|---|---|---|
 | `POST` | `/trips/{id}/expenses` | `{ title, amount, payer, splitType, share[] }` | Добавить расход. ← `addExpense` / `NewExpense` |
+| `PATCH` | `/trips/{id}/expenses/{expenseId}` | как у `POST` (полная замена) | Отредактировать расход. ← `editExpense` / `ExpenseModal` |
 | `DELETE` | `/trips/{id}/expenses/{expenseId}` | — | Удалить. ← `removeExpense` |
-| `GET` | `/trips/{id}/settlements` | — | Балансы + минимальный набор переводов. Каждый перевод несёт `toPayment` — реквизиты получателя (СБП), см. §3.8. ← `computeSettlements` |
+| `GET` | `/trips/{id}/settlements` | — | `{ status, balances, transactions[] }` — балансы + минимальный набор переводов. Каждый перевод несёт `toPayment` — реквизиты получателя (СБП), см. §3.8; после финализации ещё `id`/`isPaid`/`paidAt` (§3.5a). ← `useSettlements` |
 
 Способы разбивки (`splitType`, элементы `share` — `{ participantId, weight?, amount? }`):
 - `0` Equal — поровну между участниками `share` (поля `weight`/`amount` не нужны);
@@ -152,6 +153,24 @@ realtime-обновления вместо cross-tab `storage`-события.
 
 `GET /settlements` переносит `src/lib/settlements.ts` на бэкенд: балансы (плательщику +amount, каждому из
 `share` — его доля по `splitType`, округление до копеек) и жадная минимизация переводов. Можно считать на лету.
+
+### 3.5a Финализация подсчёта
+
+Жизненный цикл поездки: `active` → `settling` → `settled` (CLIENT_API_GUIDE.md §5.5).
+Пока `active`, `/settlements` — предварительный расчёт (`id`/`isPaid`/`paidAt` у переводов — `null`).
+В `settling`/`settled` мутации денег (расходы, участники, гости) → `409 TRIP_SETTLING`;
+события, `PATCH /trips/{id}` и редактирование профиля гостя — разрешены.
+
+| Метод | Путь | Тело | Назначение |
+|---|---|---|---|
+| `POST` | `/trips/{id}/settlement` | — | Завершить подсчёт (только owner, иначе `403`): фиксирует переводы, `status` → `settling` (или сразу `settled`, если переводить нечего). Повторно — `409 ALREADY_FINALIZED`. ← `Settlements` |
+| `PATCH` | `/trips/{id}/settlement/transactions/{txId}` | `{ paid }` | Отметить оплату/снять отметку. Может любой из концов перевода; за гостя — любой участник (чужой — `403`). До финализации — `409 NOT_FINALIZED`; неизвестный `txId` — `404 TRANSACTION_NOT_FOUND`. Все переводы оплачены → `status` `settled` автоматически. ← `Settlements` |
+| `POST` | `/trips/{id}/settlement/reopen` | — | Переоткрыть подсчёт (только owner): `status` → `active`, неоплаченные переводы удаляются, оплаченные конвертируются в расходы-переводы (`isTransfer: true`, `title: "Перевод"`), чтобы уже переведённые деньги учлись в новом расчёте. ← `Settlements` |
+
+Все три возвращают полный `{ settlements }` (формат `GET /settlements`). Расходы-переводы нельзя
+редактировать/удалять → `409 TRANSFER_READONLY`. По SignalR при финализации/оплате/reopen рассылается
+`settlement:updated` `{ tripId, settlements }` — клиент применяет снапшот в `useSettlements` без рефетча
+(при reopen дополнительно перезагружает поездку — появились расходы-переводы).
 
 ### 3.6 Программа поездки (события)
 
