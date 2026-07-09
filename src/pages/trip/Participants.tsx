@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useStore } from '../../hooks/useStore';
-import { dispIni } from '../../lib/participants';
 import { plural } from '../../lib/format';
 import { Avatar } from '../../components/Avatar';
 import { GuestModal } from '../../components/GuestModal';
+import { AddParticipantModal } from '../../components/AddParticipantModal';
 import type { Guest, Participant, Trip, User } from '../../types';
 
 type Props = {
@@ -18,6 +18,7 @@ export function Participants({ trip, ps, idDisp, idSub, me }: Props) {
   const { db, dispatch } = useStore();
   // null — модалка закрыта; { guest: null } — добавление, { guest } — редактирование.
   const [guestModal, setGuestModal] = useState<{ guest: Guest | null } | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
   // Есть ли у гостя реквизиты для перевода (детали — на экране редактирования/взаиморасчётов).
   const guestHasPay = (p: Participant): boolean =>
@@ -32,11 +33,6 @@ export function Participants({ trip, ps, idDisp, idSub, me }: Props) {
     if (p.isOwner) parts.push('создатель');
     return parts.join(' · ');
   };
-
-  // Друзья, которых ещё нет в поездке.
-  const addable = me.friends.filter((fid) => !trip.members.includes(fid)).map((fid) => db.users[fid]).filter(Boolean);
-  const addableHint =
-    me.friends.length === 0 ? 'Сначала добавь друзей на вкладке «Друзья»' : 'Все друзья уже в поездке';
 
   // Две группы: участники с аккаунтом и гости.
   const accounts = ps.filter((p) => p.kind !== 'guest');
@@ -56,6 +52,13 @@ export function Participants({ trip, ps, idDisp, idSub, me }: Props) {
       <div className="member-group">
         <div className="member-group-head">
           <span>Зарегистрированные</span>
+          <button
+            type="button"
+            className="member-add-btn"
+            onClick={() => setAddOpen(true)}
+          >
+            + участник
+          </button>
         </div>
         <div className="member-list">
           {accounts.map((p) => (
@@ -138,30 +141,9 @@ export function Participants({ trip, ps, idDisp, idSub, me }: Props) {
         <GuestModal trip={trip} guest={guestModal.guest} onClose={() => setGuestModal(null)} />
       )}
 
-      {/* Добавление участников */}
-      <div className="add-box">
-        <div className="hint" style={{ fontWeight: 600 }}>
-          Добавить из друзей
-        </div>
-        {addable.length > 0 ? (
-          <div className="chips-wrap">
-            {addable.map((u) => (
-              <button
-                key={u.id}
-                type="button"
-                className="participant-chip add"
-                onClick={() => dispatch({ type: 'addMember', tripId: trip.id, userId: u.id })}
-              >
-                <Avatar id={u.id} name={u.name} size={23} />
-                <span style={{ fontWeight: 600 }}>{dispIni(u.name)}</span>
-                <span style={{ color: 'var(--accent)', fontWeight: 700, fontSize: 16 }}>+</span>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="hint">{addableHint}</div>
-        )}
-      </div>
+      {addOpen && (
+        <AddParticipantModal trip={trip} me={me} onClose={() => setAddOpen(false)} />
+      )}
     </section>
   );
 }
