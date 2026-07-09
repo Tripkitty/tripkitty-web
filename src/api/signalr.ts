@@ -48,10 +48,12 @@ export type TripHubEvent =
   | { type: 'trip:deleted'; payload: { tripId: string } }
   | { type: 'trip:joined'; payload: { tripId: string } }
   | { type: 'expense:added'; payload: { tripId: string } }
+  | { type: 'expense:updated'; payload: { tripId: string } }
   | { type: 'expense:removed'; payload: { tripId: string; expenseId: string } }
   | { type: 'member:added'; payload: { tripId: string; id: string; name: string } }
   | { type: 'participant:removed'; payload: { tripId: string; participantId: string } }
   | { type: 'event:added'; payload: { tripId: string } }
+  | { type: 'event:updated'; payload: { tripId: string } }
   | { type: 'event:removed'; payload: { tripId: string; eventId: string } }
   | { type: 'friend:accepted'; payload: FriendAcceptedPayload }
   | { type: 'friend:request'; payload: FriendAcceptedPayload };
@@ -77,9 +79,9 @@ export async function connectHub(): Promise<void> {
 
   const events: TripHubEvent['type'][] = [
     'trip:updated', 'trip:deleted', 'trip:joined',
-    'expense:added', 'expense:removed',
+    'expense:added', 'expense:updated', 'expense:removed',
     'member:added', 'participant:removed',
-    'event:added', 'event:removed',
+    'event:added', 'event:updated', 'event:removed',
     'friend:accepted', 'friend:request',
   ];
 

@@ -108,7 +108,7 @@ export function TripDetailPage() {
           {activeTab === 'expenses' && (
             <div className="trip-col">
               <NewExpense trip={trip} ps={ps} idName={idName} />
-              <ExpenseLog trip={trip} idName={idName} isOwner={isOwner} />
+              <ExpenseLog trip={trip} ps={ps} idName={idName} isOwner={isOwner} />
               <Balances trip={trip} ps={ps} idName={idName} balances={settlements.balances} />
               <MyTripPayment tripId={trip.id} onChanged={settlements.reload} />
               <Settlements trip={trip} ps={ps} idName={idName} isOwner={isOwner} transactions={settlements.transactions} />

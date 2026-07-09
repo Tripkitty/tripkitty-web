@@ -181,12 +181,44 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }).catch(() => {});
           break;
         }
+        case 'expense:updated': {
+          const { tripId } = event.payload;
+          api.trips.get(tripId).then(({ trip }) => {
+            const { trip: dt, users } = mapApiTripDetail(trip);
+            const cur = stateRef.current;
+            _dispatch({
+              type: 'externalDB',
+              db: {
+                ...cur.db,
+                users: mergeUsers(cur.db.users, users),
+                trips: cur.db.trips.map((t) => (t.id === dt.id ? dt : t)),
+              },
+            });
+          }).catch(() => {});
+          break;
+        }
         case 'expense:removed': {
           const { tripId, expenseId } = event.payload;
           _dispatch({ type: 'removeExpense', tripId, expenseId });
           break;
         }
         case 'event:added': {
+          const { tripId } = event.payload;
+          api.trips.get(tripId).then(({ trip }) => {
+            const { trip: dt, users } = mapApiTripDetail(trip);
+            const cur = stateRef.current;
+            _dispatch({
+              type: 'externalDB',
+              db: {
+                ...cur.db,
+                users: mergeUsers(cur.db.users, users),
+                trips: cur.db.trips.map((t) => (t.id === dt.id ? dt : t)),
+              },
+            });
+          }).catch(() => {});
+          break;
+        }
+        case 'event:updated': {
           const { tripId } = event.payload;
           api.trips.get(tripId).then(({ trip }) => {
             const { trip: dt, users } = mapApiTripDetail(trip);
@@ -550,6 +582,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      case 'editExpense': {
+        await api.trips.patchExpense(
+          action.tripId,
+          action.expense.id,
+          action.expense.title,
+          action.expense.amount,
+          action.expense.payer,
+          action.expense.splitType,
+          action.expense.share,
+        );
+        const { trip: freshPE } = await api.trips.get(action.tripId);
+        const { trip: dtPE, users: usersPE } = mapApiTripDetail(freshPE);
+        const curPE = stateRef.current;
+        _dispatch({
+          type: 'externalDB',
+          db: {
+            ...curPE.db,
+            users: mergeUsers(curPE.db.users, usersPE),
+            trips: curPE.db.trips.map((t) => (t.id === dtPE.id ? dtPE : t)),
+          },
+        });
+        return;
+      }
+
       case 'removeExpense': {
         await api.trips.removeExpense(action.tripId, action.expenseId);
         _dispatch(action);
@@ -575,6 +631,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...curEv.db,
             users: mergeUsers(curEv.db.users, usersEv),
             trips: curEv.db.trips.map((t) => (t.id === dtEv.id ? dtEv : t)),
+          },
+        });
+        return;
+      }
+
+      case 'editEvent': {
+        await api.trips.patchEvent(
+          action.tripId,
+          action.event.id,
+          action.event.title,
+          action.event.date,
+          action.event.time || null,
+          action.event.endTime || null,
+        );
+        const { trip: freshPEv } = await api.trips.get(action.tripId);
+        const { trip: dtPEv, users: usersPEv } = mapApiTripDetail(freshPEv);
+        const curPEv = stateRef.current;
+        _dispatch({
+          type: 'externalDB',
+          db: {
+            ...curPEv.db,
+            users: mergeUsers(curPEv.db.users, usersPEv),
+            trips: curPEv.db.trips.map((t) => (t.id === dtPEv.id ? dtPEv : t)),
           },
         });
         return;

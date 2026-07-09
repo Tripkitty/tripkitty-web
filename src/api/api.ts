@@ -183,6 +183,10 @@ export const trips = {
   addExpense: (tripId: string, title: string, amount: number, payer: string, splitType: number, share: ApiExpenseShare[]) =>
     http.post<{ expense: ApiExpense }>(`/trips/${tripId}/expenses`, { title, amount, payer, splitType, share }),
 
+  // Полная замена расхода (как у addExpense) — частичного PATCH здесь нет.
+  patchExpense: (tripId: string, expenseId: string, title: string, amount: number, payer: string, splitType: number, share: ApiExpenseShare[]) =>
+    http.patch<{ expense: ApiExpense }>(`/trips/${tripId}/expenses/${expenseId}`, { title, amount, payer, splitType, share }),
+
   removeExpense: (tripId: string, expenseId: string) =>
     http.delete<{ message: string }>(`/trips/${tripId}/expenses/${expenseId}`),
 
@@ -202,6 +206,10 @@ export const trips = {
 
   addEvent: (tripId: string, title: string, date: string, time: string | null, endTime: string | null) =>
     http.post<{ event: ApiTripEvent }>(`/trips/${tripId}/events`, { title, date, time, endTime }),
+
+  // Полная замена события (как у addEvent) — частичного PATCH здесь нет.
+  patchEvent: (tripId: string, eventId: string, title: string, date: string, time: string | null, endTime: string | null) =>
+    http.patch<{ event: ApiTripEvent }>(`/trips/${tripId}/events/${eventId}`, { title, date, time, endTime }),
 
   removeEvent: (tripId: string, eventId: string) =>
     http.delete<{ message: string }>(`/trips/${tripId}/events/${eventId}`),

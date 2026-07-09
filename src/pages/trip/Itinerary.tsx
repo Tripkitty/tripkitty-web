@@ -3,6 +3,7 @@ import { useStore } from '../../hooks/useStore';
 import { useToast } from '../../hooks/useToast';
 import { disp, fmtDayLong } from '../../lib/format';
 import { trips as tripsApi } from '../../api/api';
+import { EventModal } from '../../components/EventModal';
 import type { Trip, TripEvent } from '../../types';
 
 export function Itinerary({ trip, isOwner }: { trip: Trip; isOwner: boolean }) {
@@ -13,6 +14,7 @@ export function Itinerary({ trip, isOwner }: { trip: Trip; isOwner: boolean }) {
   const [date, setDate] = useState(trip.start || '');
   const [time, setTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [editing, setEditing] = useState<TripEvent | null>(null);
   // Невалидные поля (подсветка снимается при вводе) и блокировка кнопок календаря на время запроса.
   const [bad, setBad] = useState<Record<string, boolean>>({});
   const [calBusy, setCalBusy] = useState(false);
@@ -181,14 +183,24 @@ export function Itinerary({ trip, isOwner }: { trip: Trip; isOwner: boolean }) {
                         {cr && <span className="hint">добавил {disp(cr.name)}</span>}
                       </div>
                       {canDelete && (
-                        <button
-                          type="button"
-                          className="remove-btn"
-                          title="Удалить событие"
-                          onClick={() => dispatch({ type: 'removeEvent', tripId: trip.id, eventId: ev.id })}
-                        >
-                          ✕
-                        </button>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            type="button"
+                            className="remove-btn"
+                            title="Редактировать событие"
+                            onClick={() => setEditing(ev)}
+                          >
+                            ✎
+                          </button>
+                          <button
+                            type="button"
+                            className="remove-btn"
+                            title="Удалить событие"
+                            onClick={() => dispatch({ type: 'removeEvent', tripId: trip.id, eventId: ev.id })}
+                          >
+                            ✕
+                          </button>
+                        </div>
                       )}
                     </div>
                   );
@@ -198,6 +210,8 @@ export function Itinerary({ trip, isOwner }: { trip: Trip; isOwner: boolean }) {
           ))}
         </div>
       )}
+
+      {editing && <EventModal trip={trip} event={editing} onClose={() => setEditing(null)} />}
     </section>
   );
 }

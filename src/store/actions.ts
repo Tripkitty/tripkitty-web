@@ -32,7 +32,11 @@ export type Action =
   | { type: 'removeParticipant'; tripId: string; participantId: string }
   // Расходы
   | { type: 'addExpense'; tripId: string; expense: Expense }
+  // expense.id — id редактируемого расхода, остальные поля — полная замена (как у addExpense)
+  | { type: 'editExpense'; tripId: string; expense: Expense }
   | { type: 'removeExpense'; tripId: string; expenseId: string }
   // События программы
   | { type: 'addEvent'; tripId: string; event: TripEvent }
+  // event.id — id редактируемого события, остальные поля — полная замена (как у addEvent)
+  | { type: 'editEvent'; tripId: string; event: TripEvent }
   | { type: 'removeEvent'; tripId: string; eventId: string };

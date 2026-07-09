@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { useStore } from '../../hooks/useStore';
 import { disp, fmt } from '../../lib/format';
 import { expenseShareAmounts } from '../../lib/settlements';
-import type { Expense, Trip } from '../../types';
+import { ExpenseModal } from '../../components/ExpenseModal';
+import type { Expense, Participant, Trip } from '../../types';
 
 type Props = {
   trip: Trip;
+  ps: Participant[];
   idName: Record<string, string>;
   isOwner: boolean;
 };
@@ -22,9 +25,10 @@ function buildShareLabel(e: Expense, idName: Record<string, string>, cur: string
   return (e.splitType === 1 ? 'по частям: ' : 'по суммам: ') + list;
 }
 
-export function ExpenseLog({ trip, idName, isOwner }: Props) {
+export function ExpenseLog({ trip, ps, idName, isOwner }: Props) {
   const { db, sessionUserId, dispatch } = useStore();
   const total = trip.expenses.reduce((a, e) => a + e.amount, 0);
+  const [editing, setEditing] = useState<Expense | null>(null);
 
   return (
     <section className="trip-block">
@@ -59,14 +63,24 @@ export function ExpenseLog({ trip, idName, isOwner }: Props) {
                   <div className="hint">платил {idName[e.payer] || '—'}</div>
                 </div>
                 {canDelete ? (
-                  <button
-                    type="button"
-                    className="remove-btn"
-                    title={mine ? 'Удалить свой расход' : 'Удалить как владелец поездки'}
-                    onClick={() => dispatch({ type: 'removeExpense', tripId: trip.id, expenseId: e.id })}
-                  >
-                    ✕
-                  </button>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      type="button"
+                      className="remove-btn"
+                      title="Редактировать расход"
+                      onClick={() => setEditing(e)}
+                    >
+                      ✎
+                    </button>
+                    <button
+                      type="button"
+                      className="remove-btn"
+                      title={mine ? 'Удалить свой расход' : 'Удалить как владелец поездки'}
+                      onClick={() => dispatch({ type: 'removeExpense', tripId: trip.id, expenseId: e.id })}
+                    >
+                      ✕
+                    </button>
+                  </div>
                 ) : (
                   <span className="lock" title={'добавил ' + (cr ? disp(cr.name) : '—')}>
                     🔒
@@ -76,6 +90,10 @@ export function ExpenseLog({ trip, idName, isOwner }: Props) {
             );
           })}
         </div>
+      )}
+
+      {editing && (
+        <ExpenseModal trip={trip} ps={ps} idName={idName} expense={editing} onClose={() => setEditing(null)} />
       )}
     </section>
   );
