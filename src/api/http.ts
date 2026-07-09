@@ -9,13 +9,15 @@ export class ApiError extends Error {
   readonly code: string;
   readonly field: string | null;
   readonly status: number;
+  readonly details: unknown;
 
-  constructor(code: string, message: string, field: string | null = null, status = 400) {
+  constructor(code: string, message: string, field: string | null = null, status = 400, details: unknown = null) {
     super(message);
     this.name = 'ApiError';
     this.code = code;
     this.field = field;
     this.status = status;
+    this.details = details;
   }
 }
 
@@ -90,8 +92,8 @@ async function parseResponse<T>(res: Response): Promise<T> {
   try { data = JSON.parse(text); } catch { /* ignore */ }
 
   if (!res.ok) {
-    const e = (data as { error?: { code?: string; message?: string; field?: string | null } }).error;
-    if (e?.code) throw new ApiError(e.code, e.message ?? 'Ошибка', e.field ?? null, res.status);
+    const e = (data as { error?: { code?: string; message?: string; field?: string | null; details?: unknown } }).error;
+    if (e?.code) throw new ApiError(e.code, e.message ?? 'Ошибка', e.field ?? null, res.status, e.details ?? null);
     if (res.status === 401) throw new ApiError('UNAUTHORIZED', 'Требуется авторизация', null, 401);
     throw new ApiError('HTTP_ERROR', `HTTP ${res.status}`, null, res.status);
   }

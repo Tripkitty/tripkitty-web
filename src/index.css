@@ -834,6 +834,103 @@ button.participant-chip:hover {
   gap: 12px;
 }
 
+/* Список участников: группы «С аккаунтом» и «Гости» */
+.member-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.member-count {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.member-group {
+  display: flex;
+  flex-direction: column;
+}
+.member-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 12px 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.member-add-btn {
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 8px;
+  transition: background 0.12s;
+}
+.member-add-btn:hover {
+  background: var(--field);
+}
+.member-list {
+  display: flex;
+  flex-direction: column;
+}
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.member-row:last-child {
+  border-bottom: none;
+}
+.member-main {
+  flex: 1;
+  min-width: 0;
+}
+.member-name {
+  font-weight: 600;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.member-dis {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 13px;
+}
+.member-sub {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+.member-act {
+  flex-shrink: 0;
+  border: none;
+  background: var(--chip-on);
+  color: var(--chip-on-tx);
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: filter 0.12s;
+}
+.member-act:hover {
+  filter: brightness(1.1);
+}
+
 /* Журнал расходов */
 .log-list {
   display: flex;
@@ -928,13 +1025,6 @@ button.participant-chip:hover {
 }
 
 /* ===== Программа поездки ===== */
-.itinerary {
-  border-top: 1px solid var(--line);
-  padding: clamp(22px, 4vw, 40px);
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
 .itinerary-title {
   margin: 0;
   font-size: 21px;
@@ -1240,31 +1330,98 @@ button.participant-chip:hover {
 
 /* ===== Реквизиты / СБП ===== */
 
-/* Выбор банков — чипы-переключатели */
+/* Выбор банков — выпадающий список с чекбоксами (множественный выбор) */
 .bank-picker {
+  position: relative;
+}
+.bank-picker-trigger {
+  width: 100%;
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
-}
-.bank-chip {
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 13.5px;
-  font-weight: 600;
-  font-family: Onest, sans-serif;
+  background: var(--field);
   border: 1.5px solid var(--field-bd);
-  background: var(--chip);
-  color: var(--chip-tx);
+  border-radius: 13px;
+  padding: 15px 18px;
+  font-size: 15px;
+  font-weight: 500;
+  font-family: Onest, sans-serif;
+  color: var(--text);
   cursor: pointer;
-  transition: all 0.12s;
+  transition: border-color 0.12s;
 }
-.bank-chip.on {
+.bank-picker-trigger:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+.bank-picker-trigger.placeholder .bank-picker-summary {
+  color: var(--muted);
+}
+.bank-picker-trigger.invalid {
+  border-color: var(--err);
+  background: color-mix(in srgb, var(--err) 7%, var(--field));
+}
+.bank-picker-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bank-picker-chevron {
+  flex: none;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+.bank-picker-chevron.open {
+  transform: rotate(180deg);
+}
+.bank-picker-panel {
+  position: fixed;
+  z-index: 1300;
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--card);
+  border: 1.5px solid var(--field-bd);
+  border-radius: 13px;
+  padding: 6px;
+  box-shadow: 0 16px 44px -26px rgba(20, 25, 40, 0.4);
+}
+.bank-picker-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 14.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.bank-picker-option:hover {
+  background: var(--field);
+}
+.bank-picker-checkbox {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  border: 1.5px solid var(--field-bd);
+  color: #fff;
+}
+.bank-picker-option.on .bank-picker-checkbox {
   border-color: transparent;
   background: var(--chip-on);
   color: var(--chip-on-tx);
-}
-.bank-picker.invalid .bank-chip {
-  border-color: var(--err);
 }
 
 /* Форма реквизитов (профиль / поездка / гость) */
@@ -1382,6 +1539,102 @@ button.participant-chip:hover {
 .settle-pay-none {
   font-style: italic;
   opacity: 0.6;
+}
+
+/* Финализация подсчёта: бейдж статуса, отметки об оплате, кнопки владельца */
+.settle-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.settle-status {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--hdr-tx);
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+.settle-status.ok {
+  background: color-mix(in srgb, var(--pos) 28%, transparent);
+}
+.settle-row.paid {
+  opacity: 0.55;
+}
+.settle-row.paid .settle-names {
+  text-decoration: line-through;
+}
+.settle-paid-btn {
+  align-self: flex-start;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  background: none;
+  color: var(--hdr-tx);
+  font-weight: 600;
+  font-size: 12.5px;
+  padding: 6px 12px;
+  transition: background 0.12s, border-color 0.12s;
+}
+.settle-paid-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+.settle-paid-btn.on {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--pos) 30%, transparent);
+}
+.settle-paid-btn:disabled {
+  opacity: 0.5;
+}
+.settle-paid-mark {
+  align-self: flex-start;
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--hdr-tx);
+  opacity: 0.7;
+}
+.settle-paid-mark.on {
+  font-style: normal;
+  opacity: 1;
+}
+.settle-reopen {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--hdr-tx);
+  opacity: 0.8;
+  font-weight: 600;
+  font-size: 13.5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 0;
+}
+.settle-reopen:hover:not(:disabled) {
+  opacity: 1;
+}
+.settle-reopen:disabled {
+  opacity: 0.4;
+}
+
+/* Расход-перевод в журнале (isTransfer): read-only, помечен бейджем */
+.log-transfer-tag {
+  display: inline-block;
+  margin-left: 8px;
+  vertical-align: 1px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.log-row.transfer .log-title {
+  color: var(--muted);
 }
 
 /* ===== Мобильная адаптация списков (в конце файла — правила выше не должны
@@ -1551,4 +1804,78 @@ button.participant-chip:hover {
 @keyframes whatsnew-pop {
   from { transform: translateY(12px) scale(0.98); opacity: 0; }
   to { transform: none; opacity: 1; }
+}
+
+/* ===== Универсальное модальное окно ===== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.42);
+  animation: whatsnew-fade 0.2s ease-out;
+  padding: 0;
+}
+.modal-sheet {
+  width: min(460px, 100%);
+  max-height: 88dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-bottom: none;
+  border-radius: 20px 20px 0 0;
+  padding: 18px 20px calc(18px + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.22);
+  animation: whatsnew-up 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.modal-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--heading);
+}
+.modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.modal-close:hover {
+  color: var(--heading);
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
+}
+.modal-body {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+@media (min-width: 620px) {
+  .modal-backdrop {
+    align-items: center;
+    padding: 20px;
+  }
+  .modal-sheet {
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+    animation: whatsnew-pop 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  }
 }

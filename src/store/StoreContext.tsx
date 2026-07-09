@@ -3,7 +3,7 @@ import * as api from '../api/api';
 import { connectHub, disconnectHub, onHubEvent } from '../api/signalr';
 import { refreshOnce } from '../api/http';
 import { clearTokens, getRefreshToken } from '../api/tokens';
-import { mapApiGuest, mapApiTripDetail, mapApiUser, mapFriendDto, curToCode } from '../api/mappers';
+import { mapApiGuest, mapApiTripDetail, mapApiUser, mapFriendDto, mapTripStatus, curToCode } from '../api/mappers';
 import { reducer, type State } from './reducer';
 import type { Action } from './actions';
 import type { DB, Trip, User } from '../types';
@@ -181,6 +181,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }).catch(() => {});
           break;
         }
+        case 'expense:updated': {
+          const { tripId } = event.payload;
+          api.trips.get(tripId).then(({ trip }) => {
+            const { trip: dt, users } = mapApiTripDetail(trip);
+            const cur = stateRef.current;
+            _dispatch({
+              type: 'externalDB',
+              db: {
+                ...cur.db,
+                users: mergeUsers(cur.db.users, users),
+                trips: cur.db.trips.map((t) => (t.id === dt.id ? dt : t)),
+              },
+            });
+          }).catch(() => {});
+          break;
+        }
         case 'expense:removed': {
           const { tripId, expenseId } = event.payload;
           _dispatch({ type: 'removeExpense', tripId, expenseId });
@@ -202,9 +218,58 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }).catch(() => {});
           break;
         }
+        case 'event:updated': {
+          const { tripId } = event.payload;
+          api.trips.get(tripId).then(({ trip }) => {
+            const { trip: dt, users } = mapApiTripDetail(trip);
+            const cur = stateRef.current;
+            _dispatch({
+              type: 'externalDB',
+              db: {
+                ...cur.db,
+                users: mergeUsers(cur.db.users, users),
+                trips: cur.db.trips.map((t) => (t.id === dt.id ? dt : t)),
+              },
+            });
+          }).catch(() => {});
+          break;
+        }
         case 'event:removed': {
           const { tripId, eventId } = event.payload;
           _dispatch({ type: 'removeEvent', tripId, eventId });
+          break;
+        }
+        case 'settlement:updated': {
+          // Транзакции/балансы применяет useSettlements собственной подпиской;
+          // здесь обновляем только trip.status. Переход в active (reopen) добавляет
+          // на сервере расходы-переводы, которых нет в payload — полный рефетч.
+          const { tripId, settlements } = event.payload;
+          const status = mapTripStatus(settlements.status);
+          const curTrip = stateRef.current.db.trips.find((t) => t.id === tripId);
+          if (!curTrip || curTrip.status === status) break;
+          if (status === 'active') {
+            api.trips.get(tripId).then(({ trip }) => {
+              const { trip: dt, users } = mapApiTripDetail(trip);
+              const cur = stateRef.current;
+              _dispatch({
+                type: 'externalDB',
+                db: {
+                  ...cur.db,
+                  users: mergeUsers(cur.db.users, users),
+                  trips: cur.db.trips.map((t) => (t.id === dt.id ? dt : t)),
+                },
+              });
+            }).catch(() => {});
+          } else {
+            const cur = stateRef.current;
+            _dispatch({
+              type: 'externalDB',
+              db: {
+                ...cur.db,
+                trips: cur.db.trips.map((t) => (t.id === tripId ? { ...t, status } : t)),
+              },
+            });
+          }
           break;
         }
         case 'member:added': {
@@ -310,6 +375,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       case 'externalDB':
         _dispatch(action);
         return;
+
+      // ── Синхронизация ──────────────────────────────────────────────────────
+
+      case 'refetchTrip': {
+        const { trip: fresh } = await api.trips.get(action.tripId);
+        const { trip: dt, users } = mapApiTripDetail(fresh);
+        const cur = stateRef.current;
+        _dispatch({
+          type: 'externalDB',
+          db: {
+            ...cur.db,
+            users: mergeUsers(cur.db.users, users),
+            trips: cur.db.trips.map((t) => (t.id === dt.id ? dt : t)),
+          },
+        });
+        return;
+      }
 
       // ── Профиль ────────────────────────────────────────────────────────────
 
@@ -510,8 +592,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
 
       case 'removeParticipant': {
+        // Сервер блокирует удаление 409 PARTICIPANT_HAS_EXPENSES, если участник есть
+        // в расходах (нет каскадного удаления) — ошибка пробрасывается вызывающей стороне.
         await api.trips.removeParticipant(action.tripId, action.participantId);
-        // Каскад может затронуть расходы — перезагружаем поездку.
         const { trip: fresh } = await api.trips.get(action.tripId);
         const { trip: dt, users } = mapApiTripDetail(fresh);
         _dispatch({
@@ -550,6 +633,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      case 'editExpense': {
+        await api.trips.patchExpense(
+          action.tripId,
+          action.expense.id,
+          action.expense.title,
+          action.expense.amount,
+          action.expense.payer,
+          action.expense.splitType,
+          action.expense.share,
+        );
+        const { trip: freshPE } = await api.trips.get(action.tripId);
+        const { trip: dtPE, users: usersPE } = mapApiTripDetail(freshPE);
+        const curPE = stateRef.current;
+        _dispatch({
+          type: 'externalDB',
+          db: {
+            ...curPE.db,
+            users: mergeUsers(curPE.db.users, usersPE),
+            trips: curPE.db.trips.map((t) => (t.id === dtPE.id ? dtPE : t)),
+          },
+        });
+        return;
+      }
+
       case 'removeExpense': {
         await api.trips.removeExpense(action.tripId, action.expenseId);
         _dispatch(action);
@@ -575,6 +682,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...curEv.db,
             users: mergeUsers(curEv.db.users, usersEv),
             trips: curEv.db.trips.map((t) => (t.id === dtEv.id ? dtEv : t)),
+          },
+        });
+        return;
+      }
+
+      case 'editEvent': {
+        await api.trips.patchEvent(
+          action.tripId,
+          action.event.id,
+          action.event.title,
+          action.event.date,
+          action.event.time || null,
+          action.event.endTime || null,
+        );
+        const { trip: freshPEv } = await api.trips.get(action.tripId);
+        const { trip: dtPEv, users: usersPEv } = mapApiTripDetail(freshPEv);
+        const curPEv = stateRef.current;
+        _dispatch({
+          type: 'externalDB',
+          db: {
+            ...curPEv.db,
+            users: mergeUsers(curPEv.db.users, usersPEv),
+            trips: curPEv.db.trips.map((t) => (t.id === dtPEv.id ? dtPEv : t)),
           },
         });
         return;

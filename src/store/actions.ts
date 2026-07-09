@@ -6,6 +6,9 @@ import type { DB, Expense, Guest, PaymentDetails, Trip, TripEvent, User } from '
 export type Action =
   // Внешняя синхронизация (storage-событие / realtime)
   | { type: 'externalDB'; db: DB }
+  // Полный рефетч одной поездки с сервера (например, после reopen подсчёта,
+  // когда сервер создал расходы-переводы, которых нет в локальном состоянии)
+  | { type: 'refetchTrip'; tripId: string }
   // Аутентификация
   | { type: 'register'; user: User }
   | { type: 'setSession'; userId: string | null }
@@ -32,7 +35,11 @@ export type Action =
   | { type: 'removeParticipant'; tripId: string; participantId: string }
   // Расходы
   | { type: 'addExpense'; tripId: string; expense: Expense }
+  // expense.id — id редактируемого расхода, остальные поля — полная замена (как у addExpense)
+  | { type: 'editExpense'; tripId: string; expense: Expense }
   | { type: 'removeExpense'; tripId: string; expenseId: string }
   // События программы
   | { type: 'addEvent'; tripId: string; event: TripEvent }
+  // event.id — id редактируемого события, остальные поля — полная замена (как у addEvent)
+  | { type: 'editEvent'; tripId: string; event: TripEvent }
   | { type: 'removeEvent'; tripId: string; eventId: string };

@@ -1,14 +1,17 @@
 import { useState } from 'react';
-import { useStore } from '../../hooks/useStore';
-import { useToast } from '../../hooks/useToast';
-import { fmt } from '../../lib/format';
-import type { Expense, ExpenseShare, Participant, SplitType, Trip, TripStatus } from '../../types';
+import { Modal } from './Modal';
+import { useStore } from '../hooks/useStore';
+import { useToast } from '../hooks/useToast';
+import { ApiError } from '../api/http';
+import { fmt } from '../lib/format';
+import type { Expense, ExpenseShare, Participant, SplitType, Trip } from '../types';
 
 type Props = {
   trip: Trip;
   ps: Participant[];
   idName: Record<string, string>;
-  status: TripStatus;
+  expense: Expense;
+  onClose: () => void;
 };
 
 const SPLIT_LABELS: Record<SplitType, string> = {
@@ -17,27 +20,28 @@ const SPLIT_LABELS: Record<SplitType, string> = {
   2: 'Своя сумма',
 };
 
-export function NewExpense({ trip, ps, idName, status }: Props) {
-  const { sessionUserId, dispatch } = useStore();
+export function ExpenseModal({ trip, ps, idName, expense, onClose }: Props) {
+  const { dispatch } = useStore();
   const toast = useToast();
 
-  const [title, setTitle] = useState('');
-  const [amount, setAmount] = useState('');
-  const [payer, setPayer] = useState<string>(sessionUserId || '');
-  const [splitType, setSplitType] = useState<SplitType>(0);
-  // Храним только явно ВЫКЛЮЧЕННых участников: по умолчанию делим между всеми,
-  // поэтому новые участники автоматически «включены», а выбывшие в наборе не мешают.
-  // Это позволяет синхронизироваться с составом без useEffect.
-  const [off, setOff] = useState<Record<string, boolean>>({});
-  // Веса (splitType 1) и точные суммы (splitType 2) по id участника; пустая строка = не задано.
-  const [weights, setWeights] = useState<Record<string, string>>({});
-  const [amounts, setAmounts] = useState<Record<string, string>>({});
-  // Невалидные поля: ключ 'amount' — общая сумма, id участника — его часть/сумма.
-  // Подсветка снимается при вводе в поле.
+  const [title, setTitle] = useState(expense.title);
+  const [amount, setAmount] = useState(String(expense.amount));
+  const [payer, setPayer] = useState(expense.payer);
+  const [splitType, setSplitType] = useState<SplitType>(expense.splitType);
+  const includedIds = new Set(expense.share.map((s) => s.participantId));
+  const [off, setOff] = useState<Record<string, boolean>>(
+    Object.fromEntries(ps.filter((p) => !includedIds.has(p.id)).map((p) => [p.id, true])),
+  );
+  const [weights, setWeights] = useState<Record<string, string>>(
+    Object.fromEntries(expense.share.filter((s) => s.weight != null).map((s) => [s.participantId, String(s.weight)])),
+  );
+  const [amounts, setAmounts] = useState<Record<string, string>>(
+    Object.fromEntries(expense.share.filter((s) => s.amount != null).map((s) => [s.participantId, String(s.amount)])),
+  );
   const [bad, setBad] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
   const clearBad = (k: string) => setBad((b) => (b[k] ? { ...b, [k]: false } : b));
 
-  // Эффективный плательщик: выбранный, если он ещё в составе, иначе первый участник.
   const effPayer = ps.some((p) => p.id === payer) ? payer : ps[0] ? ps[0].id : '';
   const isOn = (id: string) => !off[id];
   const sel = ps.filter((p) => isOn(p.id));
@@ -45,11 +49,10 @@ export function NewExpense({ trip, ps, idName, status }: Props) {
   const toggle = (id: string) => setOff((o) => ({ ...o, [id]: !o[id] }));
 
   const amt = parseFloat(amount);
-  // Сумма введённых точных сумм — для подсказки «осталось распределить».
   const enteredSum = sel.reduce((a, p) => a + (parseFloat(amounts[p.id]) || 0), 0);
   const rest = Math.round(((amt || 0) - enteredSum) * 100) / 100;
 
-  const add = () => {
+  const submit = async () => {
     const t = title.trim();
     if (!t) {
       setBad({ title: true });
@@ -88,47 +91,37 @@ export function NewExpense({ trip, ps, idName, status }: Props) {
       share = sel.map((p) => ({ participantId: p.id }));
     }
 
-    const exp: Expense = {
-      id: '', // id придёт от сервера через dispatch
-      title: t,
-      amount: amt,
-      payer: effPayer,
-      splitType,
-      share,
-      createdBy: sessionUserId!,
-    };
-    dispatch({ type: 'addExpense', tripId: trip.id, expense: exp });
-
-    setTitle('');
-    setAmount('');
-    setOff({}); // делёж снова на всех
-    setWeights({});
-    setAmounts({});
-    setBad({});
+    setSaving(true);
+    try {
+      await dispatch({
+        type: 'editExpense',
+        tripId: trip.id,
+        expense: { ...expense, title: t, amount: amt, payer: effPayer, splitType, share },
+      });
+      toast.success('Расход обновлён');
+      onClose();
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'TRIP_SETTLING') {
+        toast.error('Подсчёт завершён — изменения расходов заблокированы');
+      } else if (e instanceof ApiError && e.code === 'TRANSFER_READONLY') {
+        toast.error('Расход-перевод нельзя редактировать');
+      } else {
+        toast.error('Не удалось сохранить расход');
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // Подсчёт зафиксирован (settling/settled) — мутации денег заблокированы сервером (409 TRIP_SETTLING).
-  if (status !== 'active') {
-    return (
-      <section className="trip-block">
-        <label className="field-label">НОВЫЙ РАСХОД</label>
-        <div className="hint">
-          Подсчёт завершён — добавление расходов недоступно.
-          Владелец может переоткрыть подсчёт в блоке «Как рассчитаться».
-        </div>
-      </section>
-    );
-  }
-
   return (
-    <section className="trip-block">
-      <label className="field-label">НОВЫЙ РАСХОД</label>
-
+    <Modal title="Редактировать расход" onClose={onClose}>
+      <label className="field-label">На что потратили</label>
       <input
         className={'input' + (bad.title ? ' invalid' : '')}
         placeholder="На что потратили (отель, такси…)"
         value={title}
         onChange={(e) => { setTitle(e.target.value); clearBad('title'); }}
+        autoFocus
       />
 
       <div className="row">
@@ -146,9 +139,6 @@ export function NewExpense({ trip, ps, idName, status }: Props) {
           value={effPayer}
           onChange={(e) => setPayer(e.target.value)}
         >
-          <option value="" disabled>
-            Кто платил
-          </option>
           {ps.map((p) => (
             <option key={p.id} value={p.id}>
               {idName[p.id]}
@@ -249,9 +239,12 @@ export function NewExpense({ trip, ps, idName, status }: Props) {
         </div>
       )}
 
-      <button type="button" className="btn" onClick={add}>
-        Добавить расход
-      </button>
-    </section>
+      <div className="row" style={{ gap: 10, marginTop: 4 }}>
+        <button type="button" className="btn chip-on sm" onClick={submit} disabled={saving}>
+          {saving ? '…' : 'Сохранить'}
+        </button>
+        <button type="button" className="link" onClick={onClose} disabled={saving}>Отмена</button>
+      </div>
+    </Modal>
   );
 }

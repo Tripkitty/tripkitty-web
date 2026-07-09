@@ -1,14 +1,12 @@
-import { useState, type KeyboardEvent } from 'react';
+import { useState } from 'react';
 import { useStore } from '../../hooks/useStore';
-import { useToast } from '../../hooks/useToast';
-import { useBanks } from '../../hooks/useBanks';
-import { dispIni } from '../../lib/participants';
-import { formatPhone, formatRuPhoneInput, ruPhoneDigits } from '../../lib/format';
+import { plural } from '../../lib/format';
 import { Avatar } from '../../components/Avatar';
-import { BankPicker } from '../../components/BankPicker';
-import { PhoneInput } from '../../components/PhoneInput';
+import { GuestModal } from '../../components/GuestModal';
+import { AddParticipantModal } from '../../components/AddParticipantModal';
+import { useToast } from '../../hooks/useToast';
 import { ApiError } from '../../api/http';
-import type { Guest, Participant, PaymentDetails, Trip, User } from '../../types';
+import type { Guest, Participant, Trip, TripStatus, User } from '../../types';
 
 type Props = {
   trip: Trip;
@@ -16,306 +14,173 @@ type Props = {
   idDisp: Record<string, string>;
   idSub: Record<string, string>;
   me: User;
+  status: TripStatus;
 };
 
-export function Participants({ trip, ps, idDisp, idSub, me }: Props) {
+export function Participants({ trip, ps, idDisp, idSub, me, status }: Props) {
   const { db, dispatch } = useStore();
   const toast = useToast();
-  const { banks, bankName } = useBanks();
-  const [guestLast, setGuestLast] = useState('');
-  const [guestFirst, setGuestFirst] = useState('');
-  const [guestMiddle, setGuestMiddle] = useState('');
-  const [guestPhone, setGuestPhone] = useState('');
-  const [guestBanks, setGuestBanks] = useState<string[]>([]);
-  const [guestBad, setGuestBad] = useState<{ last?: boolean; first?: boolean; pay?: boolean }>({});
+  // null — модалка закрыта; { guest: null } — добавление, { guest } — редактирование.
+  const [guestModal, setGuestModal] = useState<{ guest: Guest | null } | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  // Подсчёт зафиксирован — добавление/удаление участников и гостей заблокировано
+  // сервером (409 TRIP_SETTLING); редактирование профиля гостя разрешено.
+  const canMutate = status === 'active';
 
-  // Редактирование существующего гостя (ФИО + реквизиты).
-  const [editId, setEditId] = useState<string | null>(null);
-  const [ef, setEf] = useState({ last: '', first: '', middle: '', phone: '', banks: [] as string[] });
-  const [efBad, setEfBad] = useState<{ last?: boolean; first?: boolean; pay?: boolean }>({});
-  const [savingEdit, setSavingEdit] = useState(false);
-
-  const startEditGuest = (g: Guest) => {
-    setEditId(g.id);
-    setEf({
-      last: g.lastName,
-      first: g.firstName,
-      middle: g.middleName,
-      phone: g.paymentDetails?.phone ? formatRuPhoneInput(g.paymentDetails.phone) : '',
-      banks: g.paymentDetails?.banks ?? [],
-    });
-    setEfBad({});
-  };
-
-  const saveEdit = async () => {
-    if (!editId) return;
-    const lastName = ef.last.trim();
-    const firstName = ef.first.trim();
-    const middleName = ef.middle.trim();
-    if (!lastName || !firstName) {
-      setEfBad({ last: !lastName, first: !firstName });
-      return toast.error('Введи фамилию и имя гостя');
-    }
-    const digits = ruPhoneDigits(ef.phone);
-    const hasPay = digits.length > 0 || ef.banks.length > 0;
-    if (hasPay && (digits.length !== 10 || ef.banks.length === 0)) {
-      setEfBad({ pay: true });
-      return toast.error('Для реквизитов гостя укажи телефон и хотя бы один банк');
-    }
-    const hadPay = !!trip.guests.find((g) => g.id === editId)?.paymentDetails?.phone;
-    let paymentDetails: PaymentDetails | undefined;
-    let clearPayment: boolean | undefined;
-    if (hasPay) paymentDetails = { phone: '+7' + digits, banks: ef.banks, label: null };
-    else if (hadPay) clearPayment = true; // реквизиты были и очищены — сбрасываем на сервере
-
-    setSavingEdit(true);
+  // Нет каскадного удаления на сервере: если участник фигурирует в расходах,
+  // 409 PARTICIPANT_HAS_EXPENSES — показываем, какие расходы мешают удалению.
+  const removeParticipant = async (participantId: string) => {
     try {
-      await dispatch({ type: 'updateGuest', tripId: trip.id, guestId: editId, lastName, firstName, middleName, paymentDetails, clearPayment });
-      setEditId(null);
-      toast.success('Данные гостя обновлены');
+      await dispatch({ type: 'removeParticipant', tripId: trip.id, participantId });
     } catch (e) {
-      if (e instanceof ApiError && (e.code === 'INVALID_PHONE' || e.code === 'INVALID_BANK')) {
-        setEfBad({ pay: true });
-        toast.error(e.code === 'INVALID_PHONE' ? 'Неверный номер телефона (нужен российский)' : 'Выбран недопустимый банк');
-      } else if (e instanceof ApiError && e.field === 'lastName') { setEfBad({ last: true }); toast.error('Укажи фамилию'); }
-      else if (e instanceof ApiError && e.field === 'firstName') { setEfBad({ first: true }); toast.error('Укажи имя'); }
-      else if (e instanceof ApiError) toast.error(e.message);
-      else toast.error('Не удалось сохранить данные гостя');
-    } finally {
-      setSavingEdit(false);
+      if (e instanceof ApiError && e.code === 'TRIP_SETTLING') {
+        toast.error('Подсчёт завершён — состав участников заблокирован');
+      } else if (e instanceof ApiError && e.code === 'PARTICIPANT_HAS_EXPENSES') {
+        const ids = (e.details as { expenseIds?: string[] } | null)?.expenseIds ?? [];
+        const titles = trip.expenses
+          .filter((exp) => ids.includes(exp.id))
+          .map((exp) => exp.title);
+        toast.error(
+          titles.length
+            ? `Сначала удалите или переназначьте расходы: ${titles.join(', ')}`
+            : 'Нельзя удалить участника, пока на нём есть расходы',
+        );
+      } else {
+        toast.error('Не удалось убрать участника');
+      }
     }
   };
-  const onEditKey = (e: KeyboardEvent) => { if (e.key === 'Enter') saveEdit(); };
 
-  // Реквизиты гостя для перевода (у пользователей берутся из профиля/override, не здесь).
-  const guestPayInfo = (p: Participant): string | null => {
-    if (p.kind !== 'guest') return null;
-    const pd = trip.guests.find((g) => g.id === p.id)?.paymentDetails;
-    if (!pd || !pd.phone) return null;
-    return `СБП · ${formatPhone(pd.phone)} · ${pd.banks.map(bankName).join(', ')}`;
-  };
+  // Есть ли у гостя реквизиты для перевода (детали — на экране редактирования/взаиморасчётов).
+  const guestHasPay = (p: Participant): boolean =>
+    !!trip.guests.find((g) => g.id === p.id)?.paymentDetails?.phone;
 
-  // Тег участника: @handle / гость[ N] + роли «вы» / «создатель».
-  const tagFor = (p: Participant): string => {
+  // Подпись строки аккаунта: @handle + роли «вы» / «создатель».
+  const userSub = (p: Participant): string => {
     const parts: string[] = [];
-    if (p.kind === 'friend') {
-      const u = db.users[p.id];
-      if (u && u.handle) parts.push('@' + u.handle);
-    } else {
-      parts.push(idSub[p.id] || 'гость');
-    }
+    const u = db.users[p.id];
+    if (u && u.handle) parts.push('@' + u.handle);
     if (p.isMe) parts.push('вы');
     if (p.isOwner) parts.push('создатель');
-    return parts.length ? '· ' + parts.join(' · ') : '';
+    return parts.join(' · ');
   };
 
-  const addGuest = () => {
-    const lastName = guestLast.trim();
-    const firstName = guestFirst.trim();
-    const middleName = guestMiddle.trim();
-    if (!lastName || !firstName) {
-      setGuestBad({ last: !lastName, first: !firstName });
-      return toast.error('Введи фамилию и имя гостя');
-    }
-    // Реквизиты необязательны, но если начали — нужны и полный телефон, и хотя бы один банк.
-    const digits = ruPhoneDigits(guestPhone);
-    const hasPay = digits.length > 0 || guestBanks.length > 0;
-    if (hasPay && (digits.length !== 10 || guestBanks.length === 0)) {
-      setGuestBad({ pay: true });
-      return toast.error('Для реквизитов гостя укажи телефон и хотя бы один банк');
-    }
-    const paymentDetails = hasPay ? { phone: '+7' + digits, banks: guestBanks, label: null } : null;
-    // id и вычисленное name придут от сервера через dispatch в StoreContext
-    dispatch({ type: 'addGuest', tripId: trip.id, guest: { id: '', name: '', lastName, firstName, middleName, paymentDetails } });
-    setGuestLast('');
-    setGuestFirst('');
-    setGuestMiddle('');
-    setGuestPhone('');
-    setGuestBanks([]);
-    setGuestBad({});
-  };
-  const onGuestKey = (e: KeyboardEvent) => {
-    if (e.key === 'Enter') addGuest();
-  };
-
-  // Друзья, которых ещё нет в поездке.
-  const addable = me.friends.filter((fid) => !trip.members.includes(fid)).map((fid) => db.users[fid]).filter(Boolean);
-  const addableHint =
-    me.friends.length === 0 ? 'Сначала добавь друзей на вкладке «Друзья»' : 'Все друзья уже в поездке';
+  // Две группы: участники с аккаунтом и гости.
+  const accounts = ps.filter((p) => p.kind !== 'guest');
+  const guests = ps.filter((p) => p.kind === 'guest');
+  const countLabel =
+    plural(accounts.length, 'участник', 'участника', 'участников') +
+    (guests.length ? ` + ${plural(guests.length, 'гость', 'гостя', 'гостей')}` : '');
 
   return (
     <section className="trip-block">
-      <label className="field-label">УЧАСТНИКИ</label>
-
-      <div className="chips-wrap">
-        {ps.map((p) => (
-          <span key={p.id} className="participant-chip">
-            <Avatar id={p.id} name={p.name} size={22} isMe={p.isMe} />
-            <span style={{ fontWeight: 600 }}>{idDisp[p.id]}</span>
-            {tagFor(p) && <span className="chip-tag">{tagFor(p)}</span>}
-            {guestPayInfo(p) && <span className="chip-pay" title={guestPayInfo(p)!}>💳</span>}
-            {p.kind === 'guest' && (
-              <button
-                type="button"
-                className="chip-edit"
-                title="Редактировать гостя"
-                onClick={() => {
-                  const g = trip.guests.find((x) => x.id === p.id);
-                  if (g) startEditGuest(g);
-                }}
-              >
-                ✎
-              </button>
-            )}
-            {!p.isOwner && (
-              <button
-                type="button"
-                className="chip-remove"
-                title="Убрать участника"
-                onClick={() => dispatch({ type: 'removeParticipant', tripId: trip.id, participantId: p.id })}
-              >
-                ✕
-              </button>
-            )}
-          </span>
-        ))}
+      <div className="member-head">
+        <label className="field-label">УЧАСТНИКИ</label>
+        <span className="member-count">{countLabel}</span>
       </div>
 
-      {/* Редактирование гостя */}
-      {editId && (
-        <div className="add-box">
-          <div className="hint" style={{ fontWeight: 600 }}>Редактировать гостя</div>
-          <div className="row" style={{ flexWrap: 'wrap' }}>
-            <input
-              className={'input' + (efBad.last ? ' invalid' : '')}
-              style={{ flex: 1, minWidth: 130 }}
-              placeholder="Фамилия"
-              value={ef.last}
-              onChange={(e) => { setEf((f) => ({ ...f, last: e.target.value })); setEfBad((b) => ({ ...b, last: false })); }}
-              onKeyDown={onEditKey}
-            />
-            <input
-              className={'input' + (efBad.first ? ' invalid' : '')}
-              style={{ flex: 1, minWidth: 130 }}
-              placeholder="Имя"
-              value={ef.first}
-              onChange={(e) => { setEf((f) => ({ ...f, first: e.target.value })); setEfBad((b) => ({ ...b, first: false })); }}
-              onKeyDown={onEditKey}
-            />
-          </div>
-          <div className="row">
-            <input
-              className="input"
-              style={{ flex: 1 }}
-              placeholder="Отчество (необязательно)"
-              value={ef.middle}
-              onChange={(e) => setEf((f) => ({ ...f, middle: e.target.value }))}
-              onKeyDown={onEditKey}
-            />
-          </div>
-
-          <div className="pay-banks-field">
-            <span className="field-label">Реквизиты для перевода (необязательно)</span>
-            <PhoneInput
-              value={ef.phone}
-              invalid={efBad.pay}
-              onChange={(v) => { setEf((f) => ({ ...f, phone: v })); setEfBad((b) => ({ ...b, pay: false })); }}
-            />
-            <BankPicker
-              banks={banks}
-              selected={ef.banks}
-              onChange={(codes) => { setEf((f) => ({ ...f, banks: codes })); setEfBad((b) => ({ ...b, pay: false })); }}
-              invalid={efBad.pay}
-            />
-          </div>
-
-          <div className="row" style={{ gap: 10 }}>
-            <button type="button" className="btn chip-on sm" onClick={saveEdit} disabled={savingEdit}>
-              {savingEdit ? '…' : 'Сохранить'}
+      {/* Участники с аккаунтом */}
+      <div className="member-group">
+        <div className="member-group-head">
+          <span>Зарегистрированные</span>
+          {canMutate && (
+            <button
+              type="button"
+              className="member-add-btn"
+              onClick={() => setAddOpen(true)}
+            >
+              + участник
             </button>
-            <button type="button" className="link" onClick={() => setEditId(null)} disabled={savingEdit}>Отмена</button>
-          </div>
+          )}
         </div>
-      )}
+        <div className="member-list">
+          {accounts.map((p) => (
+            <div key={p.id} className="member-row">
+              <Avatar id={p.id} name={p.name} size={34} isMe={p.isMe} />
+              <div className="member-main">
+                <div className="member-name">{idDisp[p.id]}</div>
+                {userSub(p) && <div className="member-sub">{userSub(p)}</div>}
+              </div>
+              {!p.isOwner && canMutate && (
+                <button
+                  type="button"
+                  className="member-act remove"
+                  title="Убрать участника"
+                  onClick={() => removeParticipant(p.id)}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
 
-      {/* Добавление участников */}
-      <div className="add-box">
-        <div className="hint" style={{ fontWeight: 600 }}>
-          Добавить из друзей
+      {/* Гости */}
+      <div className="member-group">
+        <div className="member-group-head">
+          <span>Гости</span>
+          {canMutate && (
+            <button
+              type="button"
+              className="member-add-btn"
+              onClick={() => setGuestModal({ guest: null })}
+            >
+              + гость
+            </button>
+          )}
         </div>
-        {addable.length > 0 ? (
-          <div className="chips-wrap">
-            {addable.map((u) => (
-              <button
-                key={u.id}
-                type="button"
-                className="participant-chip add"
-                onClick={() => dispatch({ type: 'addMember', tripId: trip.id, userId: u.id })}
-              >
-                <Avatar id={u.id} name={u.name} size={23} />
-                <span style={{ fontWeight: 600 }}>{dispIni(u.name)}</span>
-                <span style={{ color: 'var(--accent)', fontWeight: 700, fontSize: 16 }}>+</span>
-              </button>
-            ))}
+        {guests.length > 0 ? (
+          <div className="member-list">
+            {guests.map((p) => {
+              const hasPay = guestHasPay(p);
+              return (
+                <div key={p.id} className="member-row">
+                  <Avatar id={p.id} name={p.name} size={34} />
+                  <div className="member-main">
+                    <div className="member-name">
+                      {idDisp[p.id]}
+                      {idSub[p.id] && <span className="member-dis"> · {idSub[p.id]}</span>}
+                    </div>
+                    <div className="member-sub">{hasPay ? '💳 реквизиты указаны' : 'нет реквизитов'}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="member-act"
+                    title="Редактировать гостя"
+                    onClick={() => {
+                      const g = trip.guests.find((x) => x.id === p.id);
+                      if (g) setGuestModal({ guest: g });
+                    }}
+                  >
+                    ✎
+                  </button>
+                  {canMutate && (
+                    <button
+                      type="button"
+                      className="member-act remove"
+                      title="Убрать гостя"
+                      onClick={() => removeParticipant(p.id)}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : (
-          <div className="hint">{addableHint}</div>
+          <div className="hint">Гостей без аккаунта пока нет</div>
         )}
-
-        <div className="hint" style={{ fontWeight: 600 }}>
-          …или гость без аккаунта
-        </div>
-        <div className="row" style={{ flexWrap: 'wrap' }}>
-          <input
-            className={'input' + (guestBad.last ? ' invalid' : '')}
-            style={{ flex: 1, minWidth: 130 }}
-            placeholder="Фамилия"
-            value={guestLast}
-            onChange={(e) => { setGuestLast(e.target.value); setGuestBad((b) => ({ ...b, last: false })); }}
-            onKeyDown={onGuestKey}
-          />
-          <input
-            className={'input' + (guestBad.first ? ' invalid' : '')}
-            style={{ flex: 1, minWidth: 130 }}
-            placeholder="Имя"
-            value={guestFirst}
-            onChange={(e) => { setGuestFirst(e.target.value); setGuestBad((b) => ({ ...b, first: false })); }}
-            onKeyDown={onGuestKey}
-          />
-        </div>
-        <div className="row">
-          <input
-            className="input"
-            style={{ flex: 1 }}
-            placeholder="Отчество (необязательно)"
-            value={guestMiddle}
-            onChange={(e) => setGuestMiddle(e.target.value)}
-            onKeyDown={onGuestKey}
-          />
-        </div>
-
-        {/* Реквизиты гостя для перевода по СБП — необязательно */}
-        <div className="pay-banks-field">
-          <span className="field-label">Реквизиты для перевода (необязательно)</span>
-          <PhoneInput
-            value={guestPhone}
-            invalid={guestBad.pay}
-            onChange={(v) => { setGuestPhone(v); setGuestBad((b) => ({ ...b, pay: false })); }}
-          />
-          <BankPicker
-            banks={banks}
-            selected={guestBanks}
-            onChange={(codes) => { setGuestBanks(codes); setGuestBad((b) => ({ ...b, pay: false })); }}
-            invalid={guestBad.pay}
-          />
-        </div>
-
-        <div className="row">
-          <button type="button" className="btn chip-on sm" onClick={addGuest}>
-            Добавить гостя
-          </button>
-        </div>
       </div>
+
+      {guestModal && (
+        <GuestModal trip={trip} guest={guestModal.guest} onClose={() => setGuestModal(null)} />
+      )}
+
+      {addOpen && (
+        <AddParticipantModal trip={trip} me={me} onClose={() => setAddOpen(false)} />
+      )}
     </section>
   );
 }

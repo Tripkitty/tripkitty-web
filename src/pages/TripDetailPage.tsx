@@ -37,6 +37,8 @@ export function TripDetailPage() {
 
   // Взаиморасчёты считает сервер (учитывает реквизиты получателя для toPayment).
   const settlements = useSettlements(trip);
+  // Статус подсчёта: ответ /settlements свежее store (обновляется и по SignalR, и после мутаций).
+  const status = settlements.status ?? trip?.status ?? 'active';
 
   useEffect(() => {
     if (!id) return;
@@ -101,17 +103,25 @@ export function TripDetailPage() {
           {activeTab === 'participants' && (
             <div className="trip-col">
               <TripDates trip={trip} isOwner={isOwner} />
-              <Participants trip={trip} ps={ps} idDisp={idDisp} idSub={idSub} me={me} />
+              <Participants trip={trip} ps={ps} idDisp={idDisp} idSub={idSub} me={me} status={status} />
             </div>
           )}
 
           {activeTab === 'expenses' && (
             <div className="trip-col">
-              <NewExpense trip={trip} ps={ps} idName={idName} />
-              <ExpenseLog trip={trip} idName={idName} isOwner={isOwner} />
+              <NewExpense trip={trip} ps={ps} idName={idName} status={status} />
+              <ExpenseLog trip={trip} ps={ps} idName={idName} isOwner={isOwner} status={status} />
               <Balances trip={trip} ps={ps} idName={idName} balances={settlements.balances} />
               <MyTripPayment tripId={trip.id} onChanged={settlements.reload} />
-              <Settlements trip={trip} ps={ps} idName={idName} isOwner={isOwner} transactions={settlements.transactions} />
+              <Settlements
+                trip={trip}
+                ps={ps}
+                idName={idName}
+                isOwner={isOwner}
+                status={status}
+                transactions={settlements.transactions}
+                apply={settlements.apply}
+              />
             </div>
           )}
 
