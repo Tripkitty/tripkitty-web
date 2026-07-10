@@ -33,6 +33,8 @@ export type Action =
   // Обновление ФИО/реквизитов гостя. paymentDetails — задать; clearPayment — сбросить; ни того ни другого — не менять
   | { type: 'updateGuest'; tripId: string; guestId: string; lastName: string; firstName: string; middleName: string; paymentDetails?: PaymentDetails | null; clearPayment?: boolean }
   | { type: 'removeParticipant'; tripId: string; participantId: string }
+  // Общий бюджет: назначить себя спонсором участника (sponsorId = id текущего юзера) или снять (null)
+  | { type: 'setSponsor'; tripId: string; participantId: string; sponsorId: string | null }
   // Расходы
   | { type: 'addExpense'; tripId: string; expense: Expense }
   // expense.id — id редактируемого расхода, остальные поля — полная замена (как у addExpense)

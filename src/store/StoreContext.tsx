@@ -608,6 +608,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      case 'setSponsor': {
+        // Правила (SPONSOR_SELF/CHAIN/TAKEN, NOT_SPONSOR, TRIP_SETTLING) проверяет сервер —
+        // ошибка пробрасывается вызывающей стороне. Ответ несёт полный TripDetail,
+        // применяем его напрямую (SignalR trip:updated сделает тот же полный апдейт).
+        const { trip } = await api.trips.setSponsor(action.tripId, action.participantId, action.sponsorId);
+        const { trip: dt, users } = mapApiTripDetail(trip);
+        const cur = stateRef.current;
+        _dispatch({
+          type: 'externalDB',
+          db: {
+            ...cur.db,
+            users: mergeUsers(cur.db.users, users),
+            trips: cur.db.trips.map((t) => (t.id === dt.id ? dt : t)),
+          },
+        });
+        return;
+      }
+
       // ── Расходы ────────────────────────────────────────────────────────────
 
       case 'addExpense': {

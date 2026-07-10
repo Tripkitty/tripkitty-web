@@ -40,6 +40,7 @@ export type Guest = {
   firstName: string;
   middleName: string;
   paymentDetails?: PaymentDetails | null;
+  sponsorId?: string | null; // общий бюджет: id участника, который платит за гостя
 };
 
 // Способ разбивки расхода: 0 — поровну, 1 — по частям (weight), 2 — точные суммы (amount).
@@ -90,6 +91,9 @@ export type Trip = {
   guests: Guest[];
   expenses: Expense[];
   events: TripEvent[];
+  // Общий бюджет (§4.4): participantId → sponsorId для всех подопечных (members и guests).
+  // Собирается из sponsorId в DTO; участники без спонсора в мапе отсутствуют.
+  sponsors?: Record<string, string>;
 };
 
 export type DB = { users: Record<string, User>; trips: Trip[] };

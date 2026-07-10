@@ -11,6 +11,9 @@ export type ApiUser = {
   middleName: string | null;
   handle: string;
   email: string;
+  // Общий бюджет (§4.4): id участника-спонсора. Приходит только в контексте
+  // участника поездки (MemberDto); в auth-эндпоинтах поля нет.
+  sponsorId?: string | null;
 };
 export type ApiTokens = { accessToken: string; refreshToken: string };
 
@@ -79,6 +82,7 @@ export type ApiGuest = {
   firstName: string;
   middleName: string | null;
   paymentDetails?: ApiPaymentDetails | null;
+  sponsorId?: string | null; // общий бюджет (§4.4)
 };
 
 export type ApiTripDetail = ApiTripSummary & {
@@ -112,7 +116,11 @@ export type ApiSettlementTx = {
 
 export type ApiSettlements = {
   status: string; // 'active' | 'settling' | 'settled'
+  // Итоговые балансы после слияния общих бюджетов (§4.4): у подопечных всегда 0,
+  // их долг/кредит перелит спонсору.
   balances: Record<string, number>;
+  // Персональные балансы до слияния бюджетов; без спонсоров совпадает с balances.
+  ownBalances?: Record<string, number>;
   transactions: ApiSettlementTx[];
 };
 
@@ -191,6 +199,11 @@ export const trips = {
 
   removeParticipant: (tripId: string, participantId: string) =>
     http.delete<{ message: string }>(`/trips/${tripId}/participants/${participantId}`),
+
+  // Общий бюджет (§4.4): назначить себя спонсором участника (sponsorId = id текущего
+  // юзера) или снять (null). Ответ — полный TripDetail; сервер шлёт trip:updated.
+  setSponsor: (tripId: string, participantId: string, sponsorId: string | null) =>
+    http.patch<{ trip: ApiTripDetail }>(`/trips/${tripId}/participants/${participantId}/sponsor`, { sponsorId }),
 
   // ─── Расходы ─────────────────────────────────────────────────────────────
 

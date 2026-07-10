@@ -120,13 +120,25 @@ realtime-обновления вместо cross-tab `storage`-события.
 | `POST` | `/trips/{id}/guests` | `{ lastName, firstName, middleName? }` | Добавить гостя без аккаунта. Сервер генерит `g_*`, вычисляет `name` и возвращает `Guest`. ← `addGuest` |
 | `PATCH` | `/trips/{id}/guests/{guestId}` | `{ lastName?, firstName?, middleName?, paymentDetails?, clearPayment? }` | Обновить ФИО/реквизиты гостя (любой участник; If-Match не нужен). ФИО — как у `/auth/me`. `paymentDetails` задан → задать/заменить; `clearPayment:true` (без `paymentDetails`) → сброс в `null`; ни того ни другого → не менять. Шлёт `trip:updated` по SignalR. ← `updateGuest` |
 | `DELETE` | `/trips/{id}/participants/{participantId}` | — | Удалить участника (member или guest). ← `removeParticipant` |
+| `PATCH` | `/trips/{id}/participants/{participantId}/sponsor` | `{ sponsorId }` | Общий бюджет: назначить себя спонсором участника (`sponsorId` = id вызывающего) или снять (`null`). Ответ — `{ trip }` (полный TripDetail), шлёт `trip:updated`. ← `setSponsor` / `Participants` |
 
 **Удаление участника без каскада**: если участник фигурирует хоть в одном расходе (как `payer`
 или в чьём-либо `share`), сервер отвечает `409 PARTICIPANT_HAS_EXPENSES` с `error.details.expenseIds` —
 списком блокирующих расходов. Клиент должен сначала удалить/переназначить эти расходы
 (`DELETE /trips/{id}/expenses/{expenseId}` либо `PATCH` с новым `payer`/`share`) и повторить удаление.
 `removeParticipant` в `StoreContext.tsx` пробрасывает `ApiError`, UI (`Participants.tsx`) ловит
-`PARTICIPANT_HAS_EXPENSES` и показывает названия блокирующих расходов тостом.
+`PARTICIPANT_HAS_EXPENSES` и показывает названия блокирующих расходов тостом. Аналогично блокируется
+удаление участника-спонсора: `409 PARTICIPANT_IS_SPONSOR`, `error.details.participantIds` — его подопечные.
+
+**Общий бюджет (спонсор)** (CLIENT_API_GUIDE.md §4.4): у member/guest в DTO есть `sponsorId: string | null` —
+id участника, который берёт его расходы на себя. Правила сервера: назначить спонсором можно только себя
+(иначе `403 NOT_SPONSOR`; снять — только текущий спонсор), не себе (`422 SPONSOR_SELF`), цепочки запрещены
+(`409 SPONSOR_CHAIN`), за участника уже платят (`409 SPONSOR_TAKEN`), в `settling`/`settled` — `409 TRIP_SETTLING`.
+Расходы вводятся как обычно (подопечный может быть `payer` и участвовать в `share`) — спонсорство влияет
+только на итоговый расчёт (§3.5): баланс подопечного переливается спонсору, в переводы он не попадает.
+Фича ретроактивна и обратима. На фронте мапа `trip.sponsors` (`participantId → sponsorId`) собирается
+в `mapApiTripDetail`; UI — бейдж «платит …» и кнопки взять/снять в `Participants`, строки «из них за …»
+по `ownBalances` в `Balances`.
 
 Бизнес-правило для `addMember`: добавлять можно только из числа друзей (или участников, у кого есть доступ —
 определить политику). Гостей может добавлять любой участник.
@@ -138,7 +150,7 @@ realtime-обновления вместо cross-tab `storage`-события.
 | `POST` | `/trips/{id}/expenses` | `{ title, amount, payer, splitType, share[] }` | Добавить расход. ← `addExpense` / `NewExpense` |
 | `PATCH` | `/trips/{id}/expenses/{expenseId}` | как у `POST` (полная замена) | Отредактировать расход. ← `editExpense` / `ExpenseModal` |
 | `DELETE` | `/trips/{id}/expenses/{expenseId}` | — | Удалить. ← `removeExpense` |
-| `GET` | `/trips/{id}/settlements` | — | `{ status, balances, transactions[] }` — балансы + минимальный набор переводов. Каждый перевод несёт `toPayment` — реквизиты получателя (СБП), см. §3.8; после финализации ещё `id`/`isPaid`/`paidAt` (§3.5a). ← `useSettlements` |
+| `GET` | `/trips/{id}/settlements` | — | `{ status, balances, ownBalances, transactions[] }` — балансы + минимальный набор переводов. `balances` — после слияния общих бюджетов (§3.4: у подопечных `0`, их баланс перелит спонсору), `ownBalances` — персональные до слияния. Каждый перевод несёт `toPayment` — реквизиты получателя (СБП), см. §3.8; после финализации ещё `id`/`isPaid`/`paidAt` (§3.5a). ← `useSettlements` |
 
 Способы разбивки (`splitType`, элементы `share` — `{ participantId, weight?, amount? }`):
 - `0` Equal — поровну между участниками `share` (поля `weight`/`amount` не нужны);

@@ -111,7 +111,7 @@ export function TripDetailPage() {
             <div className="trip-col">
               <NewExpense trip={trip} ps={ps} idName={idName} status={status} />
               <ExpenseLog trip={trip} ps={ps} idName={idName} isOwner={isOwner} status={status} />
-              <Balances trip={trip} ps={ps} idName={idName} balances={settlements.balances} />
+              <Balances trip={trip} ps={ps} idName={idName} balances={settlements.balances} ownBalances={settlements.ownBalances} />
               <MyTripPayment tripId={trip.id} onChanged={settlements.reload} />
               <Settlements
                 trip={trip}

@@ -89,6 +89,7 @@ export function mapApiGuest(g: ApiGuest): Guest {
     firstName: g.firstName ?? '',
     middleName: g.middleName ?? '',
     paymentDetails: g.paymentDetails ?? null,
+    sponsorId: g.sponsorId ?? null,
   };
 }
 
@@ -109,6 +110,11 @@ export function mapApiTripDetail(t: ApiTripDetail): { trip: Trip; users: Record<
     users[m.id] = mapApiUser(m);
   }
 
+  // Общий бюджет: собираем sponsorId участников и гостей в одну мапу поездки.
+  const sponsors: Record<string, string> = {};
+  for (const m of t.members) if (m.sponsorId) sponsors[m.id] = m.sponsorId;
+  for (const g of t.guests) if (g.sponsorId) sponsors[g.id] = g.sponsorId;
+
   const trip: Trip = {
     id: t.id,
     name: t.name,
@@ -122,6 +128,7 @@ export function mapApiTripDetail(t: ApiTripDetail): { trip: Trip; users: Record<
     guests: t.guests.map(mapApiGuest),
     expenses: t.expenses.map(mapApiExpense),
     events: t.events.map(mapApiEvent),
+    sponsors,
   };
 
   return { trip, users };
