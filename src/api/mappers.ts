@@ -73,6 +73,9 @@ export function mapApiExpense(e: ApiExpense): Expense {
     })),
     createdBy: e.createdBy,
     isTransfer: e.isTransfer ?? false,
+    grossAmount: e.grossAmount ?? undefined,
+    discountPercent: e.discountPercent ?? undefined,
+    discountAmount: e.discountAmount ?? undefined,
   };
 }
 

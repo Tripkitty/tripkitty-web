@@ -55,7 +55,7 @@ export type ExpenseShare = {
 export type Expense = {
   id: string;
   title: string;
-  amount: number;
+  amount: number; // итоговая сумма ПОСЛЕ скидки — делится между участниками через share
   payer: string; // id участника (user или guest)
   splitType: SplitType;
   share: ExpenseShare[]; // участники, между которыми делится расход
@@ -63,6 +63,11 @@ export type Expense = {
   // Служебный расход-перевод, созданный сервером при переоткрытии подсчёта;
   // редактировать/удалять нельзя (409 TRANSFER_READONLY).
   isTransfer?: boolean;
+  // Скидка (необязательна): сумма до скидки + один из discountPercent/discountAmount
+  // (не оба сразу). Только для отображения — amount уже содержит итог после скидки.
+  grossAmount?: number;
+  discountPercent?: number;
+  discountAmount?: number;
 };
 
 export type TripEvent = {

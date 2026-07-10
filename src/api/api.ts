@@ -43,6 +43,16 @@ export type ApiExpense = {
   share: ApiExpenseShare[];
   createdBy: string;
   isTransfer?: boolean;
+  grossAmount?: number | null;
+  discountPercent?: number | null;
+  discountAmount?: number | null;
+};
+
+// Скидка на расход: сумма до скидки + один из discountPercent/discountAmount (не оба сразу).
+export type ExpenseDiscount = {
+  grossAmount?: number;
+  discountPercent?: number;
+  discountAmount?: number;
 };
 
 export type ApiTripEvent = {
@@ -207,14 +217,14 @@ export const trips = {
 
   // ─── Расходы ─────────────────────────────────────────────────────────────
 
-  addExpense: (tripId: string, title: string, amount: number, payer: string, splitType: number, share: ApiExpenseShare[]) =>
-    http.post<{ expense: ApiExpense }>(`/trips/${tripId}/expenses`, { title, amount, payer, splitType, share }),
+  addExpense: (tripId: string, title: string, amount: number, payer: string, splitType: number, share: ApiExpenseShare[], discount?: ExpenseDiscount) =>
+    http.post<{ expense: ApiExpense }>(`/trips/${tripId}/expenses`, { title, amount, payer, splitType, share, ...discount }),
 
   // Полная замена расхода (как у addExpense) — частичного PATCH здесь нет.
   // warning: "TRIP_HAS_PAID_TRANSFERS" — в поездке уже есть оплаченные переводы,
   // правка может пересчитать чей-то остаток долга (не ошибка, 200 OK).
-  patchExpense: (tripId: string, expenseId: string, title: string, amount: number, payer: string, splitType: number, share: ApiExpenseShare[]) =>
-    http.patch<{ expense: ApiExpense; warning: string | null }>(`/trips/${tripId}/expenses/${expenseId}`, { title, amount, payer, splitType, share }),
+  patchExpense: (tripId: string, expenseId: string, title: string, amount: number, payer: string, splitType: number, share: ApiExpenseShare[], discount?: ExpenseDiscount) =>
+    http.patch<{ expense: ApiExpense; warning: string | null }>(`/trips/${tripId}/expenses/${expenseId}`, { title, amount, payer, splitType, share, ...discount }),
 
   removeExpense: (tripId: string, expenseId: string) =>
     http.delete<{ message: string }>(`/trips/${tripId}/expenses/${expenseId}`),

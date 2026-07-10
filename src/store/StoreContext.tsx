@@ -636,6 +636,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           action.expense.payer,
           action.expense.splitType,
           action.expense.share,
+          {
+            grossAmount: action.expense.grossAmount,
+            discountPercent: action.expense.discountPercent,
+            discountAmount: action.expense.discountAmount,
+          },
         );
         const { trip: freshE } = await api.trips.get(action.tripId);
         const { trip: dtE, users: usersE } = mapApiTripDetail(freshE);
@@ -660,6 +665,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           action.expense.payer,
           action.expense.splitType,
           action.expense.share,
+          {
+            grossAmount: action.expense.grossAmount,
+            discountPercent: action.expense.discountPercent,
+            discountAmount: action.expense.discountAmount,
+          },
         );
         const { trip: freshPE } = await api.trips.get(action.tripId);
         const { trip: dtPE, users: usersPE } = mapApiTripDetail(freshPE);

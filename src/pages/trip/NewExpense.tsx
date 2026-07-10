@@ -37,6 +37,12 @@ export function NewExpense({ trip, ps, idName, status }: Props) {
   const [bad, setBad] = useState<Record<string, boolean>>({});
   const clearBad = (k: string) => setBad((b) => (b[k] ? { ...b, [k]: false } : b));
 
+  // Скидка (необязательна): при withDiscount "Сумма" — это сумма ДО скидки (grossAmount),
+  // итоговая (netAmount) считается автоматически и не вводится вручную.
+  const [withDiscount, setWithDiscount] = useState(false);
+  const [discountMode, setDiscountMode] = useState<'percent' | 'amount'>('percent');
+  const [discountValue, setDiscountValue] = useState('');
+
   // Эффективный плательщик: выбранный, если он ещё в составе, иначе первый участник.
   const effPayer = ps.some((p) => p.id === payer) ? payer : ps[0] ? ps[0].id : '';
   const isOn = (id: string) => !off[id];
@@ -44,7 +50,11 @@ export function NewExpense({ trip, ps, idName, status }: Props) {
 
   const toggle = (id: string) => setOff((o) => ({ ...o, [id]: !o[id] }));
 
-  const amt = parseFloat(amount);
+  const gross = withDiscount ? parseFloat(amount) || 0 : 0;
+  const discNum = parseFloat(discountValue) || 0;
+  const discountAmountComputed = discountMode === 'percent' ? Math.round(gross * discNum) / 100 : discNum;
+  const netAmount = Math.round((gross - discountAmountComputed) * 100) / 100;
+  const amt = withDiscount ? netAmount : parseFloat(amount);
   // Сумма введённых точных сумм — для подсказки «осталось распределить».
   const enteredSum = sel.reduce((a, p) => a + (parseFloat(amounts[p.id]) || 0), 0);
   const rest = Math.round(((amt || 0) - enteredSum) * 100) / 100;
@@ -54,6 +64,20 @@ export function NewExpense({ trip, ps, idName, status }: Props) {
     if (!t) {
       setBad({ title: true });
       return toast.error('Напиши, на что потратили');
+    }
+    if (withDiscount) {
+      if (!gross || gross <= 0) {
+        setBad({ amount: true });
+        return toast.error('Укажи сумму больше нуля');
+      }
+      if (discountMode === 'percent' && (discNum < 0 || discNum > 100)) {
+        setBad({ discount: true });
+        return toast.error('Скидка должна быть от 0 до 100%');
+      }
+      if (discountMode === 'amount' && discNum < 0) {
+        setBad({ discount: true });
+        return toast.error('Скидка не может быть отрицательной');
+      }
     }
     if (!amt || amt <= 0) {
       setBad({ amount: true });
@@ -96,6 +120,9 @@ export function NewExpense({ trip, ps, idName, status }: Props) {
       splitType,
       share,
       createdBy: sessionUserId!,
+      grossAmount: withDiscount ? gross : undefined,
+      discountPercent: withDiscount && discountMode === 'percent' ? discNum : undefined,
+      discountAmount: withDiscount && discountMode === 'amount' ? discNum : undefined,
     };
     dispatch({ type: 'addExpense', tripId: trip.id, expense: exp });
 
@@ -105,6 +132,9 @@ export function NewExpense({ trip, ps, idName, status }: Props) {
     setWeights({});
     setAmounts({});
     setBad({});
+    setWithDiscount(false);
+    setDiscountMode('percent');
+    setDiscountValue('');
   };
 
   // Подсчёт зафиксирован (settling/settled) — мутации денег заблокированы сервером (409 TRIP_SETTLING).
@@ -156,6 +186,45 @@ export function NewExpense({ trip, ps, idName, status }: Props) {
           ))}
         </select>
       </div>
+
+      <div>
+        <button
+          type="button"
+          className={'chip' + (withDiscount ? ' on' : '')}
+          onClick={() => setWithDiscount((v) => !v)}
+        >
+          Со скидкой
+        </button>
+      </div>
+
+      {withDiscount && (
+        <div>
+          <div className="row">
+            <select
+              className="input"
+              style={{ flex: 1, minWidth: 90 }}
+              value={discountMode}
+              onChange={(e) => setDiscountMode(e.target.value as 'percent' | 'amount')}
+            >
+              <option value="percent">%</option>
+              <option value="amount">сумма</option>
+            </select>
+            <input
+              className={'input mono' + (bad.discount ? ' invalid' : '')}
+              style={{ flex: 1, minWidth: 100 }}
+              type="number"
+              placeholder={discountMode === 'percent' ? '10' : '100'}
+              value={discountValue}
+              onChange={(e) => { setDiscountValue(e.target.value); clearBad('discount'); }}
+            />
+          </div>
+          {gross > 0 && (
+            <div className="hint" style={{ marginTop: 4 }}>
+              Итого после скидки: {fmt(netAmount, trip.cur)}
+            </div>
+          )}
+        </div>
+      )}
 
       <div>
         <div className="hint" style={{ fontWeight: 600, marginBottom: 8 }}>

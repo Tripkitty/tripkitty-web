@@ -47,7 +47,7 @@ realtime-обновления вместо cross-tab `storage`-события.
 | **User** | `id`, `lastName`, `firstName`, `middleName?`, `name` (вычисляемое), `handle`, `email`, `friends[]`, `incoming[]`, `outgoing[]` | ФИО хранится 3 полями; `name` = «Имя Фамилия» вычисляется сервером и отдаётся во всех user-объектах. `pass` → **`passwordHash`** (bcrypt/argon2), наружу никогда не отдаётся. `email`/`handle` — уникальные индексы. |
 | **Trip** | `id`, `name`, `cur`, `ownerId`, `start`, `end`, `members[]`, `guests[]`, `version`, `status` | добавлен `version`/`updatedAt` для оптимистичной блокировки; `status` — стадия подсчёта `active`/`settling`/`settled` (см. §3.5a). |
 | **Guest** | `id` (`g_*`), `lastName`, `firstName`, `middleName?`, `name` (вычисляемое) | ФИО 3 полями, как у User. |
-| **Expense** | `id`, `title`, `amount`, `payer`, `splitType`, `share[]`, `createdBy`, `isTransfer` | `splitType`: 0 — поровну, 1 — по частям, 2 — точные суммы. `share` — массив `{ participantId, weight?, amount? }`. `isTransfer: true` — служебный расход-перевод из reopen (§3.5a), read-only. `amount` хранить аккуратно (см. §4.4 про деньги). |
+| **Expense** | `id`, `title`, `amount`, `payer`, `splitType`, `share[]`, `createdBy`, `isTransfer`, `grossAmount?`, `discountPercent?`, `discountAmount?` | `splitType`: 0 — поровну, 1 — по частям, 2 — точные суммы. `share` — массив `{ participantId, weight?, amount? }`. `isTransfer: true` — служебный расход-перевод из reopen (§3.5a), read-only. `amount` хранить аккуратно (см. §4.4 про деньги). Скидка: `grossAmount` + один из `discountPercent`(0..100)/`discountAmount` (не оба сразу) — только для отображения «было/стало», `amount` уже содержит итог после скидки и делится через `share`; сервер проверяет `grossAmount - скидка == amount` (±0.01). |
 | **TripEvent** | `id`, `title`, `date`, `time`, `endTime`, `createdBy` | без изменений. |
 
 **Граф друзей** (`friends`/`incoming`/`outgoing`) на сервере удобнее хранить отдельной таблицей рёбер
@@ -147,7 +147,7 @@ id участника, который берёт его расходы на се
 
 | Метод | Путь | Тело | Назначение |
 |---|---|---|---|
-| `POST` | `/trips/{id}/expenses` | `{ title, amount, payer, splitType, share[] }` | Добавить расход. ← `addExpense` / `NewExpense` |
+| `POST` | `/trips/{id}/expenses` | `{ title, amount, payer, splitType, share[], grossAmount?, discountPercent?, discountAmount? }` | Добавить расход. ← `addExpense` / `NewExpense` |
 | `PATCH` | `/trips/{id}/expenses/{expenseId}` | как у `POST` (полная замена) | Отредактировать расход. ← `editExpense` / `ExpenseModal` |
 | `DELETE` | `/trips/{id}/expenses/{expenseId}` | — | Удалить. ← `removeExpense` |
 | `GET` | `/trips/{id}/settlements` | — | `{ status, balances, ownBalances, transactions[] }` — балансы + минимальный набор переводов. `balances` — после слияния общих бюджетов (§3.4: у подопечных `0`, их баланс перелит спонсору), `ownBalances` — персональные до слияния. Каждый перевод несёт `toPayment` — реквизиты получателя (СБП), см. §3.8; после финализации ещё `id`/`isPaid`/`paidAt` (§3.5a). ← `useSettlements` |
@@ -161,7 +161,10 @@ id участника, который берёт его расходы на се
 - `amount > 0`;
 - `payer` — id участника **этой** поездки (member или guest);
 - `share` — непустой, все id — участники этой поездки;
-- `createdBy` проставляет сервер из токена (не доверять клиенту).
+- `createdBy` проставляет сервер из токена (не доверять клиенту);
+- скидка (необязательна): нельзя указать `discountPercent` и `discountAmount` одновременно;
+  если указана скидка — `grossAmount` обязателен и `> 0`; `discountPercent` — `0..100`;
+  `discountAmount` — `>= 0`; `grossAmount` минус скидка должен равняться `amount` ±0.01.
 
 `GET /settlements` переносит `src/lib/settlements.ts` на бэкенд: балансы (плательщику +amount, каждому из
 `share` — его доля по `splitType`, округление до копеек) и жадная минимизация переводов. Можно считать на лету.

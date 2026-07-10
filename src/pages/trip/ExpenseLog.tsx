@@ -76,10 +76,19 @@ export function ExpenseLog({ trip, ps, idName, isOwner, status }: Props) {
                   <div className="hint">{shareLabel}</div>
                 </div>
                 <div className="log-side">
-                  <div className="mono" style={{ fontSize: 16, color: 'var(--heading)' }}>
-                    {fmt(e.amount, trip.cur)}
+                  <div className="mono" style={{ fontSize: 16, color: 'var(--heading)', display: 'flex', alignItems: 'baseline', gap: 6, justifyContent: 'flex-end' }}>
+                    {e.grossAmount != null && (
+                      <span className="hint mono" style={{ fontSize: 12, textDecoration: 'line-through' }}>
+                        {fmt(e.grossAmount, trip.cur)}
+                      </span>
+                    )}
+                    <span>{fmt(e.amount, trip.cur)}</span>
                   </div>
-                  <div className="hint">платил {idName[e.payer] || '—'}</div>
+                  <div className="hint">
+                    {e.grossAmount != null &&
+                      'скидка ' + (e.discountPercent != null ? e.discountPercent + '%' : fmt(e.discountAmount ?? 0, trip.cur)) + ' · '}
+                    платил {idName[e.payer] || '—'}
+                  </div>
                 </div>
                 {canEdit ? (
                   <div style={{ display: 'flex', gap: 6 }}>
