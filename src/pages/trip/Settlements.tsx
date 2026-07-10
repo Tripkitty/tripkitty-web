@@ -83,6 +83,15 @@ export function Settlements({ trip, ps, idName, isOwner, status, transactions, a
     }
   };
 
+  const copyPhone = async (phone: string) => {
+    try {
+      await navigator.clipboard.writeText(phone.replace(/\D/g, ''));
+      toast.success('Номер скопирован');
+    } catch {
+      toast.error('Не удалось скопировать номер');
+    }
+  };
+
   const reopen = async () => {
     if (busy) return;
     if (!confirm('Переоткрыть подсчёт? Неоплаченные переводы будут удалены, а оплаченные превратятся в расходы-переводы.')) return;
@@ -137,6 +146,15 @@ export function Settlements({ trip, ps, idName, isOwner, status, transactions, a
                 {t.toPayment ? (
                   <div className="settle-pay">
                     <span className="settle-pay-phone mono">{formatPhone(t.toPayment.phone)}</span>
+                    <button
+                      type="button"
+                      className="settle-pay-copy"
+                      aria-label="Скопировать номер"
+                      title="Скопировать номер"
+                      onClick={() => copyPhone(t.toPayment!.phone)}
+                    >
+                      <CopyIcon />
+                    </button>
                     <span className="settle-pay-banks">
                       {t.toPayment.banks.map(bankName).join(' · ')}
                     </span>
@@ -196,5 +214,14 @@ export function Settlements({ trip, ps, idName, isOwner, status, transactions, a
         </button>
       )}
     </>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
   );
 }
