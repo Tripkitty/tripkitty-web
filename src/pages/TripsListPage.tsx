@@ -14,6 +14,7 @@ const CURRENCIES = [
   { glyph: '€', label: '€ евро' },
   { glyph: '₸', label: '₸ тенге' },
   { glyph: '₴', label: '₴ гривна' },
+  { glyph: 'Br', label: 'Br белорусский рубль' },
 ];
 
 export function TripsListPage() {
