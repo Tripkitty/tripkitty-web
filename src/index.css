@@ -199,6 +199,24 @@ select {
   padding: clamp(24px, 5vw, 34px);
   overflow: hidden;
 }
+.header-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--hdr-tx);
+  transition: background 0.12s;
+}
+.header-close:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
 .header-band .deco {
   position: absolute;
   top: 0;

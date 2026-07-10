@@ -6,6 +6,7 @@ import { TripDetailPage } from './pages/TripDetailPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { FriendsPage } from './pages/FriendsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { HistoryPage } from './pages/HistoryPage';
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/friends" element={<FriendsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/history" element={<HistoryPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/trips" replace />} />
     </Routes>
