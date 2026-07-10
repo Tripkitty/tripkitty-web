@@ -1,4 +1,5 @@
 import { useWhatsNew } from '../hooks/useWhatsNew';
+import { ReleaseList } from './ReleaseList';
 
 // Плашка «что нового» после обновления. Ненавязчивый bottom sheet, закрывается крестиком / по фону.
 export function WhatsNew({ enabled }: { enabled: boolean }) {
@@ -23,19 +24,7 @@ export function WhatsNew({ enabled }: { enabled: boolean }) {
         </div>
 
         <div className="whatsnew-body">
-          {releases.map((r) => (
-            <section key={r.version} className="whatsnew-release">
-              <div className="whatsnew-release-head">
-                <span className="whatsnew-title">{r.title}</span>
-                {r.date && <span className="whatsnew-date">{r.date}</span>}
-              </div>
-              <ul className="whatsnew-items">
-                {r.items.map((item, i) => (
-                  <li key={i}>{item}</li>
-                ))}
-              </ul>
-            </section>
-          ))}
+          <ReleaseList releases={releases} />
         </div>
 
         <button type="button" className="btn whatsnew-ok" onClick={dismiss}>

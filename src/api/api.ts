@@ -11,6 +11,9 @@ export type ApiUser = {
   middleName: string | null;
   handle: string;
   email: string;
+  // Общий бюджет (§4.4): id участника-спонсора. Приходит только в контексте
+  // участника поездки (MemberDto); в auth-эндпоинтах поля нет.
+  sponsorId?: string | null;
 };
 export type ApiTokens = { accessToken: string; refreshToken: string };
 
@@ -40,6 +43,16 @@ export type ApiExpense = {
   share: ApiExpenseShare[];
   createdBy: string;
   isTransfer?: boolean;
+  grossAmount?: number | null;
+  discountPercent?: number | null;
+  discountAmount?: number | null;
+};
+
+// Скидка на расход: сумма до скидки + один из discountPercent/discountAmount (не оба сразу).
+export type ExpenseDiscount = {
+  grossAmount?: number;
+  discountPercent?: number;
+  discountAmount?: number;
 };
 
 export type ApiTripEvent = {
@@ -79,6 +92,7 @@ export type ApiGuest = {
   firstName: string;
   middleName: string | null;
   paymentDetails?: ApiPaymentDetails | null;
+  sponsorId?: string | null; // общий бюджет (§4.4)
 };
 
 export type ApiTripDetail = ApiTripSummary & {
@@ -112,7 +126,11 @@ export type ApiSettlementTx = {
 
 export type ApiSettlements = {
   status: string; // 'active' | 'settling' | 'settled'
+  // Итоговые балансы после слияния общих бюджетов (§4.4): у подопечных всегда 0,
+  // их долг/кредит перелит спонсору.
   balances: Record<string, number>;
+  // Персональные балансы до слияния бюджетов; без спонсоров совпадает с balances.
+  ownBalances?: Record<string, number>;
   transactions: ApiSettlementTx[];
 };
 
@@ -192,14 +210,21 @@ export const trips = {
   removeParticipant: (tripId: string, participantId: string) =>
     http.delete<{ message: string }>(`/trips/${tripId}/participants/${participantId}`),
 
+  // Общий бюджет (§4.4): назначить себя спонсором участника (sponsorId = id текущего
+  // юзера) или снять (null). Ответ — полный TripDetail; сервер шлёт trip:updated.
+  setSponsor: (tripId: string, participantId: string, sponsorId: string | null) =>
+    http.patch<{ trip: ApiTripDetail }>(`/trips/${tripId}/participants/${participantId}/sponsor`, { sponsorId }),
+
   // ─── Расходы ─────────────────────────────────────────────────────────────
 
-  addExpense: (tripId: string, title: string, amount: number, payer: string, splitType: number, share: ApiExpenseShare[]) =>
-    http.post<{ expense: ApiExpense }>(`/trips/${tripId}/expenses`, { title, amount, payer, splitType, share }),
+  addExpense: (tripId: string, title: string, amount: number, payer: string, splitType: number, share: ApiExpenseShare[], discount?: ExpenseDiscount) =>
+    http.post<{ expense: ApiExpense }>(`/trips/${tripId}/expenses`, { title, amount, payer, splitType, share, ...discount }),
 
   // Полная замена расхода (как у addExpense) — частичного PATCH здесь нет.
-  patchExpense: (tripId: string, expenseId: string, title: string, amount: number, payer: string, splitType: number, share: ApiExpenseShare[]) =>
-    http.patch<{ expense: ApiExpense }>(`/trips/${tripId}/expenses/${expenseId}`, { title, amount, payer, splitType, share }),
+  // warning: "TRIP_HAS_PAID_TRANSFERS" — в поездке уже есть оплаченные переводы,
+  // правка может пересчитать чей-то остаток долга (не ошибка, 200 OK).
+  patchExpense: (tripId: string, expenseId: string, title: string, amount: number, payer: string, splitType: number, share: ApiExpenseShare[], discount?: ExpenseDiscount) =>
+    http.patch<{ expense: ApiExpense; warning: string | null }>(`/trips/${tripId}/expenses/${expenseId}`, { title, amount, payer, splitType, share, ...discount }),
 
   removeExpense: (tripId: string, expenseId: string) =>
     http.delete<{ message: string }>(`/trips/${tripId}/expenses/${expenseId}`),

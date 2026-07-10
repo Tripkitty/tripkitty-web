@@ -8,7 +8,7 @@ import { reducer, type State } from './reducer';
 import type { Action } from './actions';
 import type { DB, Trip, User } from '../types';
 
-export type AsyncDispatch = (action: Action) => Promise<void>;
+export type AsyncDispatch = (action: Action) => Promise<{ warning?: string | null } | void>;
 
 type StoreValue = State & {
   dispatch: AsyncDispatch;
@@ -608,6 +608,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      case 'setSponsor': {
+        // Правила (SPONSOR_SELF/CHAIN/TAKEN, NOT_SPONSOR, TRIP_SETTLING) проверяет сервер —
+        // ошибка пробрасывается вызывающей стороне. Ответ несёт полный TripDetail,
+        // применяем его напрямую (SignalR trip:updated сделает тот же полный апдейт).
+        const { trip } = await api.trips.setSponsor(action.tripId, action.participantId, action.sponsorId);
+        const { trip: dt, users } = mapApiTripDetail(trip);
+        const cur = stateRef.current;
+        _dispatch({
+          type: 'externalDB',
+          db: {
+            ...cur.db,
+            users: mergeUsers(cur.db.users, users),
+            trips: cur.db.trips.map((t) => (t.id === dt.id ? dt : t)),
+          },
+        });
+        return;
+      }
+
       // ── Расходы ────────────────────────────────────────────────────────────
 
       case 'addExpense': {
@@ -618,6 +636,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           action.expense.payer,
           action.expense.splitType,
           action.expense.share,
+          {
+            grossAmount: action.expense.grossAmount,
+            discountPercent: action.expense.discountPercent,
+            discountAmount: action.expense.discountAmount,
+          },
         );
         const { trip: freshE } = await api.trips.get(action.tripId);
         const { trip: dtE, users: usersE } = mapApiTripDetail(freshE);
@@ -634,7 +657,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
 
       case 'editExpense': {
-        await api.trips.patchExpense(
+        const { warning } = await api.trips.patchExpense(
           action.tripId,
           action.expense.id,
           action.expense.title,
@@ -642,6 +665,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           action.expense.payer,
           action.expense.splitType,
           action.expense.share,
+          {
+            grossAmount: action.expense.grossAmount,
+            discountPercent: action.expense.discountPercent,
+            discountAmount: action.expense.discountAmount,
+          },
         );
         const { trip: freshPE } = await api.trips.get(action.tripId);
         const { trip: dtPE, users: usersPE } = mapApiTripDetail(freshPE);
@@ -654,7 +682,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             trips: curPE.db.trips.map((t) => (t.id === dtPE.id ? dtPE : t)),
           },
         });
-        return;
+        return { warning };
       }
 
       case 'removeExpense': {

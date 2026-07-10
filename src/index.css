@@ -199,6 +199,24 @@ select {
   padding: clamp(24px, 5vw, 34px);
   overflow: hidden;
 }
+.header-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--hdr-tx);
+  transition: background 0.12s;
+}
+.header-close:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
 .header-band .deco {
   position: absolute;
   top: 0;
@@ -930,6 +948,23 @@ button.participant-chip:hover {
 .member-act:hover {
   filter: brightness(1.1);
 }
+/* Общий бюджет: «Взять расходы на себя» / «Снять общий бюджет» в строке участника */
+.member-sponsor-btn {
+  display: inline-block;
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.member-sponsor-btn:hover {
+  background: var(--field);
+}
 
 /* Журнал расходов */
 .log-list {
@@ -971,16 +1006,31 @@ button.participant-chip:hover {
   display: flex;
   flex-direction: column;
 }
+/* Блок участника: основная строка + строки подопечных общего бюджета «из них за …» */
+.balance-item {
+  border-bottom: 1px dashed var(--line);
+}
+.balance-item:last-child {
+  border-bottom: none;
+}
 .balance-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 12px 0;
-  border-bottom: 1px dashed var(--line);
 }
-.balance-row:last-child {
-  border-bottom: none;
+.balance-sub-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 0 10px 14px;
+  font-size: 13px;
+}
+.balance-sub-row > span:first-child {
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 /* Как рассчитаться */
@@ -1619,20 +1669,7 @@ button.participant-chip:hover {
   opacity: 0.4;
 }
 
-/* Расход-перевод в журнале (isTransfer): read-only, помечен бейджем */
-.log-transfer-tag {
-  display: inline-block;
-  margin-left: 8px;
-  vertical-align: 1px;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--muted);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
+/* Расход-перевод в журнале (isTransfer): read-only, заголовок "Перевод" от сервера — приглушаем цветом */
 .log-row.transfer .log-title {
   color: var(--muted);
 }

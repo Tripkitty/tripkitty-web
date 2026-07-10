@@ -27,6 +27,49 @@ export function Participants({ trip, ps, idDisp, idSub, me, status }: Props) {
   // сервером (409 TRIP_SETTLING); редактирование профиля гостя разрешено.
   const canMutate = status === 'active';
 
+  // Общий бюджет (§4.4): participantId → sponsorId.
+  const sponsors = trip.sponsors ?? {};
+  const isSponsoring = (pid: string) => Object.values(sponsors).includes(pid);
+  // Превентивные проверки правил (сервер проверяет сам): взять можно, если ни у кого
+  // из пары нет спонсора (цепочки запрещены) и участник сам никого не спонсирует.
+  const canTake = (p: Participant) =>
+    canMutate && !p.isMe && !sponsors[p.id] && !sponsors[me.id] && !isSponsoring(p.id);
+  const canRelease = (p: Participant) => canMutate && sponsors[p.id] === me.id;
+
+  const setSponsor = async (participantId: string, sponsorId: string | null) => {
+    try {
+      await dispatch({ type: 'setSponsor', tripId: trip.id, participantId, sponsorId });
+    } catch (e) {
+      const code = e instanceof ApiError ? e.code : null;
+      toast.error(
+        code === 'SPONSOR_TAKEN' ? 'За этого участника уже платит другой'
+        : code === 'SPONSOR_CHAIN' ? 'Цепочки запрещены: либо за вас уже платят, либо участник сам платит за другого'
+        : code === 'SPONSOR_SELF' ? 'Нельзя взять расходы на самого себя'
+        : code === 'NOT_SPONSOR' ? 'Снять общий бюджет может только текущий спонсор'
+        : code === 'TRIP_SETTLING' ? 'Подсчёт завершён — общий бюджет заблокирован'
+        : sponsorId ? 'Не удалось взять расходы на себя' : 'Не удалось снять общий бюджет',
+      );
+    }
+  };
+
+  // Кнопки и бейдж общего бюджета — общие для строк аккаунтов и гостей.
+  const sponsorActions = (p: Participant) => (
+    <>
+      {canTake(p) && (
+        <button type="button" className="member-sponsor-btn" onClick={() => setSponsor(p.id, me.id)}>
+          Взять расходы на себя
+        </button>
+      )}
+      {canRelease(p) && (
+        <button type="button" className="member-sponsor-btn" onClick={() => setSponsor(p.id, null)}>
+          Снять общий бюджет
+        </button>
+      )}
+    </>
+  );
+  const sponsorBadge = (p: Participant): string =>
+    sponsors[p.id] ? `платит ${idDisp[sponsors[p.id]] ?? '…'}` : '';
+
   // Нет каскадного удаления на сервере: если участник фигурирует в расходах,
   // 409 PARTICIPANT_HAS_EXPENSES — показываем, какие расходы мешают удалению.
   const removeParticipant = async (participantId: string) => {
@@ -35,6 +78,14 @@ export function Participants({ trip, ps, idDisp, idSub, me, status }: Props) {
     } catch (e) {
       if (e instanceof ApiError && e.code === 'TRIP_SETTLING') {
         toast.error('Подсчёт завершён — состав участников заблокирован');
+      } else if (e instanceof ApiError && e.code === 'PARTICIPANT_IS_SPONSOR') {
+        const ids = (e.details as { participantIds?: string[] } | null)?.participantIds ?? [];
+        const names = ids.map((x) => idDisp[x]).filter(Boolean);
+        toast.error(
+          names.length
+            ? `Участник платит за: ${names.join(', ')} — сначала снимите общий бюджет`
+            : 'Участник платит за других — сначала снимите общий бюджет',
+        );
       } else if (e instanceof ApiError && e.code === 'PARTICIPANT_HAS_EXPENSES') {
         const ids = (e.details as { expenseIds?: string[] } | null)?.expenseIds ?? [];
         const titles = trip.expenses
@@ -55,13 +106,14 @@ export function Participants({ trip, ps, idDisp, idSub, me, status }: Props) {
   const guestHasPay = (p: Participant): boolean =>
     !!trip.guests.find((g) => g.id === p.id)?.paymentDetails?.phone;
 
-  // Подпись строки аккаунта: @handle + роли «вы» / «создатель».
+  // Подпись строки аккаунта: @handle + роли «вы» / «создатель» + общий бюджет.
   const userSub = (p: Participant): string => {
     const parts: string[] = [];
     const u = db.users[p.id];
     if (u && u.handle) parts.push('@' + u.handle);
     if (p.isMe) parts.push('вы');
     if (p.isOwner) parts.push('создатель');
+    if (sponsorBadge(p)) parts.push(sponsorBadge(p));
     return parts.join(' · ');
   };
 
@@ -100,6 +152,7 @@ export function Participants({ trip, ps, idDisp, idSub, me, status }: Props) {
               <div className="member-main">
                 <div className="member-name">{idDisp[p.id]}</div>
                 {userSub(p) && <div className="member-sub">{userSub(p)}</div>}
+                {sponsorActions(p)}
               </div>
               {!p.isOwner && canMutate && (
                 <button
@@ -142,7 +195,11 @@ export function Participants({ trip, ps, idDisp, idSub, me, status }: Props) {
                       {idDisp[p.id]}
                       {idSub[p.id] && <span className="member-dis"> · {idSub[p.id]}</span>}
                     </div>
-                    <div className="member-sub">{hasPay ? '💳 реквизиты указаны' : 'нет реквизитов'}</div>
+                    <div className="member-sub">
+                      {hasPay ? '💳 реквизиты указаны' : 'нет реквизитов'}
+                      {sponsorBadge(p) && ` · ${sponsorBadge(p)}`}
+                    </div>
+                    {sponsorActions(p)}
                   </div>
                   <button
                     type="button"

@@ -40,6 +40,7 @@ export type Guest = {
   firstName: string;
   middleName: string;
   paymentDetails?: PaymentDetails | null;
+  sponsorId?: string | null; // общий бюджет: id участника, который платит за гостя
 };
 
 // Способ разбивки расхода: 0 — поровну, 1 — по частям (weight), 2 — точные суммы (amount).
@@ -54,7 +55,7 @@ export type ExpenseShare = {
 export type Expense = {
   id: string;
   title: string;
-  amount: number;
+  amount: number; // итоговая сумма ПОСЛЕ скидки — делится между участниками через share
   payer: string; // id участника (user или guest)
   splitType: SplitType;
   share: ExpenseShare[]; // участники, между которыми делится расход
@@ -62,6 +63,11 @@ export type Expense = {
   // Служебный расход-перевод, созданный сервером при переоткрытии подсчёта;
   // редактировать/удалять нельзя (409 TRANSFER_READONLY).
   isTransfer?: boolean;
+  // Скидка (необязательна): сумма до скидки + один из discountPercent/discountAmount
+  // (не оба сразу). Только для отображения — amount уже содержит итог после скидки.
+  grossAmount?: number;
+  discountPercent?: number;
+  discountAmount?: number;
 };
 
 export type TripEvent = {
@@ -90,6 +96,9 @@ export type Trip = {
   guests: Guest[];
   expenses: Expense[];
   events: TripEvent[];
+  // Общий бюджет (§4.4): participantId → sponsorId для всех подопечных (members и guests).
+  // Собирается из sponsorId в DTO; участники без спонсора в мапе отсутствуют.
+  sponsors?: Record<string, string>;
 };
 
 export type DB = { users: Record<string, User>; trips: Trip[] };

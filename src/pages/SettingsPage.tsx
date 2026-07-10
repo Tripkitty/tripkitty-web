@@ -1,13 +1,17 @@
+import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../hooks/useTheme';
 import { THEMES, THEME_OPTIONS } from '../theme/themes';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+import { useHasNewReleases } from '../hooks/useWhatsNew';
 import { HeaderBand } from '../components/HeaderBand';
 
-// Настройки: цветовая палитра приложения и push-уведомления.
+// Настройки: цветовая палитра приложения, push-уведомления и история изменений.
 export function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { supported, permission, subscribed, loading, subscribe, unsubscribe } =
     usePushNotifications();
+  const navigate = useNavigate();
+  const hasNewReleases = useHasNewReleases(true);
 
   const pushOn = subscribed && permission === 'granted';
   const pushBlocked = supported && permission === 'denied';
@@ -70,6 +74,21 @@ export function SettingsPage() {
                 onClick={pushOn ? unsubscribe : subscribe}
               >
                 <span className="knob" />
+              </button>
+            </div>
+          </section>
+
+          {/* История изменений */}
+          <section className="card-section">
+            <label className="field-label">О приложении</label>
+            <div className="setting-row">
+              <div className="setting-meta">
+                <span className="setting-title">История изменений</span>
+                <span className="setting-desc">Что менялось в приложении по релизам.</span>
+              </div>
+              <button type="button" className="link accent" onClick={() => navigate('/history')}>
+                Смотреть
+                {hasNewReleases && <span className="nav-badge">•</span>}
               </button>
             </div>
           </section>

@@ -18,7 +18,10 @@ export type ServerTx = {
 
 export type SettlementsData = {
   status: TripStatus | null;
+  // Итоговые балансы (после слияния общих бюджетов — у подопечных 0).
   balances: Record<string, number> | null;
+  // Персональные балансы до слияния бюджетов (для строк «из них за …» у спонсора).
+  ownBalances: Record<string, number> | null;
   transactions: ServerTx[] | null;
   reload: () => void;
   // Применить ответ settlement-эндпоинта (finalize/paid/reopen) без рефетча.
@@ -31,12 +34,14 @@ export type SettlementsData = {
 export function useSettlements(trip: Trip | undefined): SettlementsData {
   const [status, setStatus] = useState<TripStatus | null>(null);
   const [balances, setBalances] = useState<Record<string, number> | null>(null);
+  const [ownBalances, setOwnBalances] = useState<Record<string, number> | null>(null);
   const [transactions, setTransactions] = useState<ServerTx[] | null>(null);
   const tripId = trip?.id;
 
   const apply = useCallback((s: ApiSettlements) => {
     setStatus(mapTripStatus(s.status));
     setBalances(s.balances);
+    setOwnBalances(s.ownBalances ?? null);
     setTransactions(
       s.transactions.map((t) => ({
         from: t.from,
@@ -59,6 +64,8 @@ export function useSettlements(trip: Trip | undefined): SettlementsData {
             e: trip.expenses.map((e) => [e.id, e.amount, e.splitType, e.payer, e.share]),
             m: trip.members,
             g: trip.guests.map((x) => x.id),
+            // Назначение/снятие общего бюджета меняет balances/transactions.
+            s: trip.sponsors ?? {},
           })
         : '',
     [trip],
@@ -73,6 +80,7 @@ export function useSettlements(trip: Trip | undefined): SettlementsData {
         // На ошибке оставляем null — компоненты откатятся на локальный расчёт.
         setStatus(null);
         setBalances(null);
+        setOwnBalances(null);
         setTransactions(null);
       });
   }, [tripId, apply]);
@@ -92,5 +100,5 @@ export function useSettlements(trip: Trip | undefined): SettlementsData {
     });
   }, [tripId, apply]);
 
-  return { status, balances, transactions, reload, apply };
+  return { status, balances, ownBalances, transactions, reload, apply };
 }

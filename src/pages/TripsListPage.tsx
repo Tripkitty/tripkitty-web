@@ -2,6 +2,7 @@ import { useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMe, useStore } from '../hooks/useStore';
 import { useToast } from '../hooks/useToast';
+import { ApiError } from '../api/http';
 import { fmt, fmtDate, initial, plural } from '../lib/format';
 import { userColor } from '../lib/avatar';
 import { tripParticipants } from '../lib/participants';
@@ -14,6 +15,7 @@ const CURRENCIES = [
   { glyph: '€', label: '€ евро' },
   { glyph: '₸', label: '₸ тенге' },
   { glyph: '₴', label: '₴ гривна' },
+  { glyph: 'Br', label: 'Br белорусский рубль' },
 ];
 
 export function TripsListPage() {
@@ -129,15 +131,24 @@ export function TripsListPage() {
 function TripCard({ trip }: { trip: Trip }) {
   const { db, sessionUserId, dispatch } = useStore();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const total = trip.expenses.reduce((a, e) => a + e.amount, 0);
   const ps = tripParticipants(trip, db.users, sessionUserId);
   const isOwner = trip.ownerId === sessionUserId;
 
-  const del = (e: MouseEvent) => {
+  const del = async (e: MouseEvent) => {
     e.stopPropagation();
     if (!confirm('Удалить поездку для всех участников?')) return;
-    dispatch({ type: 'deleteTrip', tripId: trip.id });
+    try {
+      await dispatch({ type: 'deleteTrip', tripId: trip.id });
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'TRIP_HAS_EXPENSES') {
+        toast.error('В поездке есть расходы — сначала удалите их или очистите поездку');
+      } else {
+        toast.error('Не удалось удалить поездку');
+      }
+    }
   };
 
   return (

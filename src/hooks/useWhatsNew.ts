@@ -60,3 +60,30 @@ export function useWhatsNew(enabled: boolean) {
 
   return { releases, dismiss };
 }
+
+// Бейдж «есть новое» для входа в историю изменений: сравнивает latestVersion с сохранённой
+// локально версией, но сама ничего в localStorage не пишет — маркером «просмотрено» остаётся
+// только показ/закрытие плашки WhatsNew выше.
+export function useHasNewReleases(enabled: boolean) {
+  const [hasNew, setHasNew] = useState(false);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { whatsNew } = await whatsNewApi.get();
+        if (cancelled) return;
+        const seen = readSeen();
+        if (seen != null && whatsNew.latestVersion > seen) setHasNew(true);
+      } catch {
+        // Не критично — просто не показываем бейдж.
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [enabled]);
+
+  return hasNew;
+}
