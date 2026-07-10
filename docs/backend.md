@@ -110,7 +110,7 @@ realtime-обновления вместо cross-tab `storage`-события.
 | `GET` | `/trips/{id}` | — | Полная поездка (members, guests, expenses, events). ← `TripDetailPage` |
 | `PATCH` | `/trips/{id}` | `{ name?, start?, end? }` | Переименование/даты. ← `renameTrip`, `setTripStart`, `setTripEnd` |
 | `POST` | `/trips/{id}/clear` | — | Очистить: `expenses=[]`, `guests=[]`, зафиксированный подсчёт; `status` → `active` (members и даты остаются). ← `clearTrip` |
-| `DELETE` | `/trips/{id}` | — | Удалить поездку. ← `deleteTrip` |
+| `DELETE` | `/trips/{id}` | — | Удалить поездку. Отказывает `409 TRIP_HAS_EXPENSES`, если в поездке есть хоть один расход — сначала удалить расходы или очистить поездку через `/clear`. ← `deleteTrip`, обработка кода в `TripsListPage.tsx` |
 
 ### 3.4 Участники
 
