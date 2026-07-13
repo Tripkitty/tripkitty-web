@@ -92,6 +92,7 @@ export type Trip = {
   end: string; // 'YYYY-MM-DD' или ''
   version?: number; // оптимистичная блокировка при PATCH /trips/{id}
   status: TripStatus;
+  isArchived: boolean; // архивация (§3.6) — скрывает поездку со списка активных, не блокирует работу
   members: string[]; // id пользователей
   guests: Guest[];
   expenses: Expense[];

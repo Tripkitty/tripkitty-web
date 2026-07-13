@@ -26,6 +26,7 @@ export type ApiTripSummary = {
   end: string | null;
   version: number;
   status: string; // 'active' | 'settling' | 'settled'
+  isArchived: boolean;
 };
 
 export type ApiExpenseShare = {
@@ -165,7 +166,9 @@ export const auth = {
 // ─── Поездки ─────────────────────────────────────────────────────────────────
 
 export const trips = {
-  list: () => http.get<{ trips: ApiTripSummary[] }>('/trips'),
+  // archived: true — только архивные; иначе (по умолчанию) — только неархивные (§3.6).
+  list: (archived?: boolean) =>
+    http.get<{ trips: ApiTripSummary[] }>('/trips' + (archived ? '?archived=true' : '')),
 
   create: (name: string, cur: string) =>
     http.post<{ trip: ApiTripSummary }>('/trips', { name, cur }),
@@ -181,6 +184,14 @@ export const trips = {
 
   delete: (tripId: string) =>
     http.delete<{ message: string }>(`/trips/${tripId}`),
+
+  // Архивация (§3.6) — доступна любому участнику, ничем не блокируется. Ответ — полный
+  // TripDetail; сервер шлёт trip:updated по SignalR.
+  archive: (tripId: string) =>
+    http.post<{ trip: ApiTripDetail }>(`/trips/${tripId}/archive`),
+
+  unarchive: (tripId: string) =>
+    http.post<{ trip: ApiTripDetail }>(`/trips/${tripId}/unarchive`),
 
   // ─── Участники ───────────────────────────────────────────────────────────
 

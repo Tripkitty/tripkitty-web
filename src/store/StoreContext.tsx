@@ -34,11 +34,13 @@ async function bootstrapFromApi(): Promise<State | null> {
   // AT хранится только в памяти и сбрасывается при перезагрузке страницы.
   await refreshOnce();
 
-  const [{ user }, { trips: summaries }, friendLists] = await Promise.all([
+  const [{ user }, { trips: activeSummaries }, { trips: archivedSummaries }, friendLists] = await Promise.all([
     api.auth.me(),
     api.trips.list(),
+    api.trips.list(true),
     api.friends.list(),
   ]);
+  const summaries = [...activeSummaries, ...archivedSummaries];
 
   const users: Record<string, User> = {};
 
@@ -534,6 +536,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await api.trips.clear(action.tripId);
         // Перезагружаем детали поездки (каскад затрагивает expenses/guests).
         const { trip: fresh } = await api.trips.get(action.tripId);
+        const { trip: dt, users } = mapApiTripDetail(fresh);
+        _dispatch({
+          type: 'externalDB',
+          db: {
+            ...st.db,
+            users: mergeUsers(st.db.users, users),
+            trips: st.db.trips.map((t) => (t.id === dt.id ? dt : t)),
+          },
+        });
+        return;
+      }
+
+      case 'archiveTrip':
+      case 'unarchiveTrip': {
+        const { trip: fresh } = action.type === 'archiveTrip'
+          ? await api.trips.archive(action.tripId)
+          : await api.trips.unarchive(action.tripId);
         const { trip: dt, users } = mapApiTripDetail(fresh);
         _dispatch({
           type: 'externalDB',

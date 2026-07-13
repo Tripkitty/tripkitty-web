@@ -105,12 +105,21 @@ realtime-обновления вместо cross-tab `storage`-события.
 
 | Метод | Путь | Тело | Назначение |
 |---|---|---|---|
-| `GET` | `/trips` | — | Поездки, где я owner **или** member. ← `TripsListPage` |
+| `GET` | `/trips` | — | Поездки, где я owner **или** member, по умолчанию только неархивные; `?archived=true` — только архивные (отдельный список). ← `TripsListPage` |
 | `POST` | `/trips` | `{ name, cur }` | Создать. `ownerId = me`, `members = [me]`. ← `createTrip` |
 | `GET` | `/trips/{id}` | — | Полная поездка (members, guests, expenses, events). ← `TripDetailPage` |
 | `PATCH` | `/trips/{id}` | `{ name?, start?, end? }` | Переименование/даты. ← `renameTrip`, `setTripStart`, `setTripEnd` |
 | `POST` | `/trips/{id}/clear` | — | Очистить: `expenses=[]`, `guests=[]`, зафиксированный подсчёт; `status` → `active` (members и даты остаются). ← `clearTrip` |
 | `DELETE` | `/trips/{id}` | — | Удалить поездку. Отказывает `409 TRIP_HAS_EXPENSES`, если в поездке есть хоть один расход — сначала удалить расходы или очистить поездку через `/clear`. ← `deleteTrip`, обработка кода в `TripsListPage.tsx` |
+| `POST` | `/trips/{id}/archive` | — | Архивировать (доступно любому участнику, ничем не блокируется). Ответ `{ trip }` (полный TripDetail), `isArchived: true`, шлёт `trip:updated`. ← `archiveTrip` |
+| `POST` | `/trips/{id}/unarchive` | — | Разархивировать. Ответ `{ trip }`, `isArchived: false`, шлёт `trip:updated`. ← `unarchiveTrip` |
+
+**Архивация** (CLIENT_API_GUIDE.md §3.6) — способ убрать завершённые поездки со списка активных, не удаляя
+их; в отличие от `DELETE`, работает при любом количестве расходов. На архивную поездку по-прежнему можно
+зайти через `GET /trips/{id}` и работать с ней как обычно. `TripSummary`/`TripDetail` несут поле `isArchived:
+boolean`. Фронт при бутстрапе (`bootstrapFromApi`) грузит оба списка (`/trips` и `/trips?archived=true`) и
+хранит все поездки в одном `db.trips` с флагом `isArchived` — фильтрация (табы «Активные»/«Архив») чисто
+клиентская, в `TripsListPage`.
 
 ### 3.4 Участники
 
