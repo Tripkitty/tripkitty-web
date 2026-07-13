@@ -8,7 +8,8 @@ type Props = {
   ps: Participant[];
   idName: Record<string, string>;
   // Серверные балансы (источник правды); при недоступности — локальный расчёт как фолбэк.
-  // balances — после слияния общих бюджетов (у подопечных 0), ownBalances — персональные.
+  // balances — с учётом общих бюджетов (покрытая часть подопечного зачислена спонсору,
+  // непокрытый остаток висит на нём самом), ownBalances — персональные до переливаний.
   balances?: Record<string, number> | null;
   ownBalances?: Record<string, number> | null;
 };
@@ -20,7 +21,9 @@ function balColor(v: number): string {
 
 // Баланс по участникам: знак и цвет суммы + текстовая заметка.
 // Подопечные общего бюджета (§4.4) рисуются внутри блока спонсора строками
-// «из них за …» с персональным балансом, а не как отдельные люди с нулём.
+// «из них за …» с покрытой частью (own - balance). Спонсорство по-расходное:
+// непокрытые расходы подопечного остаются на нём — тогда он получает и свою
+// обычную строку с остатком.
 export function Balances({ trip, ps, idName, balances, ownBalances }: Props) {
   const local = useMemo(() => computeSettlements(ps, trip.expenses).bal, [ps, trip.expenses]);
   const bal = balances ?? local;
@@ -29,7 +32,11 @@ export function Balances({ trip, ps, idName, balances, ownBalances }: Props) {
   // Группировка возможна только с серверными данными: локальный фолбэк не сливает
   // бюджеты — в нём показываем плоский список персональных балансов.
   const grouped = balances != null && ownBalances != null;
-  const rows = grouped ? ps.filter((p) => !sponsors[p.id]) : ps;
+  // Покрытая спонсором часть баланса подопечного (0, если расходы с парой не внесены).
+  const covered = (pid: string) => (ownBalances?.[pid] ?? 0) - (bal[pid] || 0);
+  // Подопечный живого спонсорства прячется из основного списка, только пока весь его
+  // баланс покрыт; ненулевой остаток (сняли галочку у расхода / сняли бюджет) — своя строка.
+  const rows = grouped ? ps.filter((p) => !sponsors[p.id] || Math.abs(bal[p.id] || 0) > 0.005) : ps;
   const dependentsOf = (pid: string) => (grouped ? ps.filter((p) => sponsors[p.id] === pid) : []);
 
   return (
@@ -57,12 +64,12 @@ export function Balances({ trip, ps, idName, balances, ownBalances }: Props) {
                   </span>
                 </div>
                 {deps.map((d) => {
-                  const own = ownBalances?.[d.id] ?? 0;
+                  const cov = covered(d.id);
                   return (
                     <div key={d.id} className="balance-sub-row">
                       <span>из них за {idName[d.id]}</span>
-                      <span className="mono" style={{ whiteSpace: 'nowrap', color: balColor(own) }}>
-                        {fmt(own, trip.cur)}
+                      <span className="mono" style={{ whiteSpace: 'nowrap', color: balColor(cov) }}>
+                        {fmt(cov, trip.cur)}
                       </span>
                     </div>
                   );

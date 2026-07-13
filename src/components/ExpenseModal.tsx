@@ -59,9 +59,25 @@ export function ExpenseModal({ trip, ps, idName, expense, onClose }: Props) {
         : '',
   );
 
+  // Общий бюджет (§4.4): кандидаты — пары, записанные на расходе, плюс живые пары
+  // поездки (снятую галочку можно вернуть, даже если бюджет в поездке уже выключен;
+  // при конфликте по подопечному приоритет у пары расхода — это его снапшот).
+  const baseSponsors = expense.sponsors ?? {};
+  const candidates = { ...(trip.sponsors ?? {}), ...baseSponsors };
+  // Храним выключенных подопечных; изначально выключены пары, которых нет на расходе.
+  const [spOff, setSpOff] = useState<Record<string, boolean>>(
+    Object.fromEntries(Object.keys(candidates).filter((dep) => !baseSponsors[dep]).map((dep) => [dep, true])),
+  );
+  const toggleSp = (id: string) => setSpOff((o) => ({ ...o, [id]: !o[id] }));
+
   const effPayer = ps.some((p) => p.id === payer) ? payer : ps[0] ? ps[0].id : '';
   const isOn = (id: string) => !off[id];
   const sel = ps.filter((p) => isOn(p.id));
+
+  // Показываем только значимые пары: подопечный делит этот расход или платит.
+  const relevantPairs = Object.entries(candidates).filter(
+    ([dep]) => sel.some((p) => p.id === dep) || dep === effPayer,
+  );
 
   const toggle = (id: string) => setOff((o) => ({ ...o, [id]: !o[id] }));
 
@@ -126,6 +142,15 @@ export function ExpenseModal({ trip, ps, idName, expense, onClose }: Props) {
       share = sel.map((p) => ({ participantId: p.id }));
     }
 
+    // sponsors шлём только при реальном изменении карты — undefined = «не менять»
+    // (спред ...expense ниже перекрывается явно, чтобы не переслать старую карту).
+    const finalSponsors = Object.fromEntries(
+      Object.entries(candidates).filter(([dep]) => !spOff[dep]),
+    );
+    const spChanged =
+      Object.keys(finalSponsors).length !== Object.keys(baseSponsors).length ||
+      Object.entries(finalSponsors).some(([dep, sp]) => baseSponsors[dep] !== sp);
+
     setSaving(true);
     try {
       const res = await dispatch({
@@ -141,6 +166,7 @@ export function ExpenseModal({ trip, ps, idName, expense, onClose }: Props) {
           grossAmount: withDiscount ? gross : undefined,
           discountPercent: withDiscount && discountMode === 'percent' ? discNum : undefined,
           discountAmount: withDiscount && discountMode === 'amount' ? discNum : undefined,
+          sponsors: spChanged ? finalSponsors : undefined,
         },
       });
       if (res?.warning === 'TRIP_HAS_PAID_TRANSFERS') {
@@ -154,6 +180,8 @@ export function ExpenseModal({ trip, ps, idName, expense, onClose }: Props) {
         toast.error('Подсчёт завершён — изменения расходов заблокированы');
       } else if (e instanceof ApiError && e.code === 'TRANSFER_READONLY') {
         toast.error('Расход-перевод нельзя редактировать');
+      } else if (e instanceof ApiError && e.code === 'INVALID_SPONSORS') {
+        toast.error('Общий бюджет в поездке изменился — проверь пары и попробуй снова');
       } else {
         toast.error('Не удалось сохранить расход');
       }
@@ -269,6 +297,26 @@ export function ExpenseModal({ trip, ps, idName, expense, onClose }: Props) {
           ))}
         </div>
       </div>
+
+      {relevantPairs.length > 0 && (
+        <div>
+          <div className="hint" style={{ fontWeight: 600, marginBottom: 8 }}>
+            Общий бюджет (выключи, если в этом расходе платит сам за себя):
+          </div>
+          <div className="chips-wrap">
+            {relevantPairs.map(([dep, sp]) => (
+              <button
+                key={dep}
+                type="button"
+                className={'chip' + (!spOff[dep] ? ' on' : '')}
+                onClick={() => toggleSp(dep)}
+              >
+                за {idName[dep]} платит {idName[sp]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {splitType === 1 && sel.length > 0 && (
         <div>

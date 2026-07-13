@@ -28,6 +28,16 @@ function buildShareLabel(e: Expense, idName: Record<string, string>, cur: string
   return (e.splitType === 1 ? 'по частям: ' : 'по суммам: ') + list;
 }
 
+// Подпись общего бюджета: пары {подопечный → спонсор} из снапшота расхода,
+// значимые для него (подопечный в share или payer). '' — никто никого не покрывает.
+function buildSponsorLabel(e: Expense, idName: Record<string, string>): string {
+  const pairs = Object.entries(e.sponsors ?? {}).filter(
+    ([dep]) => (e.payer === dep || e.share.some((s) => s.participantId === dep)) && idName[dep],
+  );
+  if (!pairs.length) return '';
+  return pairs.map(([dep, sp]) => `за ${idName[dep]} платит ${idName[sp] ?? '—'}`).join(', ');
+}
+
 export function ExpenseLog({ trip, ps, idName, isOwner, status }: Props) {
   const { db, sessionUserId, dispatch } = useStore();
   const toast = useToast();
@@ -69,11 +79,13 @@ export function ExpenseLog({ trip, ps, idName, isOwner, status }: Props) {
             // Расход-перевод (isTransfer) read-only для всех; в settling/settled мутации заблокированы.
             const canEdit = (mine || isOwner) && !e.isTransfer && status === 'active';
             const shareLabel = buildShareLabel(e, idName, trip.cur);
+            const sponsorLabel = buildSponsorLabel(e, idName);
             return (
               <div key={e.id} className={'log-row' + (e.isTransfer ? ' transfer' : '')}>
                 <div className="log-main">
                   <div className="log-title">{e.title}</div>
                   <div className="hint">{shareLabel}</div>
+                  {sponsorLabel && <div className="hint">{sponsorLabel}</div>}
                 </div>
                 <div className="log-side">
                   <div className="mono" style={{ fontSize: 16, color: 'var(--heading)', display: 'flex', alignItems: 'baseline', gap: 6, justifyContent: 'flex-end' }}>

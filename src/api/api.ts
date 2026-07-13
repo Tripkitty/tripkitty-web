@@ -47,6 +47,7 @@ export type ApiExpense = {
   grossAmount?: number | null;
   discountPercent?: number | null;
   discountAmount?: number | null;
+  sponsors?: Record<string, string> | null; // общий бюджет: снапшот пар этого расхода (§4.4)
 };
 
 // Скидка на расход: сумма до скидки + один из discountPercent/discountAmount (не оба сразу).
@@ -228,14 +229,18 @@ export const trips = {
 
   // ─── Расходы ─────────────────────────────────────────────────────────────
 
-  addExpense: (tripId: string, title: string, amount: number, payer: string, splitType: number, share: ApiExpenseShare[], discount?: ExpenseDiscount) =>
-    http.post<{ expense: ApiExpense }>(`/trips/${tripId}/expenses`, { title, amount, payer, splitType, share, ...discount }),
+  // sponsors (§4.4): не передан — сервер сам снапшотит живое спонсорство поездки;
+  // передан — используется как есть (только пары из живого спонсорства, иначе 422 INVALID_SPONSORS).
+  addExpense: (tripId: string, title: string, amount: number, payer: string, splitType: number, share: ApiExpenseShare[], discount?: ExpenseDiscount, sponsors?: Record<string, string>) =>
+    http.post<{ expense: ApiExpense }>(`/trips/${tripId}/expenses`, { title, amount, payer, splitType, share, ...discount, sponsors }),
 
   // Полная замена расхода (как у addExpense) — частичного PATCH здесь нет.
+  // Исключение — sponsors: не передан = оставить карту расхода как есть; передан —
+  // заменяет целиком (пары из живого спонсорства ПЛЮС уже записанные на расходе).
   // warning: "TRIP_HAS_PAID_TRANSFERS" — в поездке уже есть оплаченные переводы,
   // правка может пересчитать чей-то остаток долга (не ошибка, 200 OK).
-  patchExpense: (tripId: string, expenseId: string, title: string, amount: number, payer: string, splitType: number, share: ApiExpenseShare[], discount?: ExpenseDiscount) =>
-    http.patch<{ expense: ApiExpense; warning: string | null }>(`/trips/${tripId}/expenses/${expenseId}`, { title, amount, payer, splitType, share, ...discount }),
+  patchExpense: (tripId: string, expenseId: string, title: string, amount: number, payer: string, splitType: number, share: ApiExpenseShare[], discount?: ExpenseDiscount, sponsors?: Record<string, string>) =>
+    http.patch<{ expense: ApiExpense; warning: string | null }>(`/trips/${tripId}/expenses/${expenseId}`, { title, amount, payer, splitType, share, ...discount, sponsors }),
 
   removeExpense: (tripId: string, expenseId: string) =>
     http.delete<{ message: string }>(`/trips/${tripId}/expenses/${expenseId}`),

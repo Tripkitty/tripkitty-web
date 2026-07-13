@@ -76,6 +76,7 @@ export function mapApiExpense(e: ApiExpense): Expense {
     grossAmount: e.grossAmount ?? undefined,
     discountPercent: e.discountPercent ?? undefined,
     discountAmount: e.discountAmount ?? undefined,
+    sponsors: e.sponsors ?? {},
   };
 }
 

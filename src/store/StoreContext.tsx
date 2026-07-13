@@ -648,6 +648,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // ── Расходы ────────────────────────────────────────────────────────────
 
       case 'addExpense': {
+        // sponsors: undefined = сервер сам снапшотит живое спонсорство поездки (обычный случай).
         await api.trips.addExpense(
           action.tripId,
           action.expense.title,
@@ -660,6 +661,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             discountPercent: action.expense.discountPercent,
             discountAmount: action.expense.discountAmount,
           },
+          action.expense.sponsors,
         );
         const { trip: freshE } = await api.trips.get(action.tripId);
         const { trip: dtE, users: usersE } = mapApiTripDetail(freshE);
@@ -676,6 +678,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
 
       case 'editExpense': {
+        // sponsors: undefined = не менять карту расхода (форма передаёт её только при изменении).
         const { warning } = await api.trips.patchExpense(
           action.tripId,
           action.expense.id,
@@ -689,6 +692,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             discountPercent: action.expense.discountPercent,
             discountAmount: action.expense.discountAmount,
           },
+          action.expense.sponsors,
         );
         const { trip: freshPE } = await api.trips.get(action.tripId);
         const { trip: dtPE, users: usersPE } = mapApiTripDetail(freshPE);

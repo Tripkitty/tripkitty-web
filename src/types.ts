@@ -68,6 +68,11 @@ export type Expense = {
   grossAmount?: number;
   discountPercent?: number;
   discountAmount?: number;
+  // Общий бюджет (§4.4): снапшот пар {подопечный → спонсор} ЭТОГО расхода.
+  // Сервер снапшотит живое спонсорство поездки при создании; дальше карта живёт
+  // на расходе своей жизнью (пары можно точечно убирать/возвращать через PATCH).
+  // Пустой объект — в этом расходе каждый сам за себя.
+  sponsors?: Record<string, string>;
 };
 
 export type TripEvent = {
@@ -99,6 +104,8 @@ export type Trip = {
   events: TripEvent[];
   // Общий бюджет (§4.4): participantId → sponsorId для всех подопечных (members и guests).
   // Собирается из sponsorId в DTO; участники без спонсора в мапе отсутствуют.
+  // Это ДЕФОЛТ для новых расходов: сервер снапшотит карту в Expense.sponsors при
+  // создании; включение/снятие флага уже внесённые расходы не трогает.
   sponsors?: Record<string, string>;
 };
 
