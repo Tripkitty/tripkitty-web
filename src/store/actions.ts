@@ -26,6 +26,9 @@ export type Action =
   | { type: 'setTripStart'; tripId: string; start: string }
   | { type: 'setTripEnd'; tripId: string; end: string }
   | { type: 'clearTrip'; tripId: string }
+  // Архивация (§3.6) — доступна любому участнику, ничем не блокируется
+  | { type: 'archiveTrip'; tripId: string }
+  | { type: 'unarchiveTrip'; tripId: string }
   // Участники
   | { type: 'addMember'; tripId: string; userId: string }
   // id/name гостя приходят от сервера; компонент передаёт их пустыми, заполняет StoreContext.

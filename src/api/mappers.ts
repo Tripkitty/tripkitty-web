@@ -76,6 +76,7 @@ export function mapApiExpense(e: ApiExpense): Expense {
     grossAmount: e.grossAmount ?? undefined,
     discountPercent: e.discountPercent ?? undefined,
     discountAmount: e.discountAmount ?? undefined,
+    sponsors: e.sponsors ?? {},
   };
 }
 
@@ -127,6 +128,7 @@ export function mapApiTripDetail(t: ApiTripDetail): { trip: Trip; users: Record<
     end: t.end ?? '',
     version: t.version,
     status: mapTripStatus(t.status),
+    isArchived: t.isArchived,
     members: t.members.map((m) => m.id),
     guests: t.guests.map(mapApiGuest),
     expenses: t.expenses.map(mapApiExpense),

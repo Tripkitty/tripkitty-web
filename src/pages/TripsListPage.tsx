@@ -50,6 +50,7 @@ export function TripsListPage() {
           start,
           end,
           status: 'active',
+          isArchived: false,
           members: [me.id],
           guests: [],
           expenses: [],
@@ -69,7 +70,9 @@ export function TripsListPage() {
 
   const onNameKey = (e: KeyboardEvent) => { if (e.key === 'Enter') createTrip(); };
 
-  const myTrips = db.trips.filter((t) => t.members.includes(sessionUserId!));
+  const [showArchived, setShowArchived] = useState(false);
+  const myTrips = db.trips.filter((t) => t.members.includes(sessionUserId!) && t.isArchived === showArchived);
+  const archivedCount = db.trips.filter((t) => t.members.includes(sessionUserId!) && t.isArchived).length;
 
   return (
     <div className="view" style={{ maxWidth: 1080 }}>
@@ -113,9 +116,26 @@ export function TripsListPage() {
         МОИ ПОЕЗДКИ
       </div>
 
+      <div className="trip-tabs" style={{ width: '100%', marginBottom: 16 }}>
+        <button
+          type="button"
+          className={'trip-tab-btn' + (!showArchived ? ' active' : '')}
+          onClick={() => setShowArchived(false)}
+        >
+          Активные
+        </button>
+        <button
+          type="button"
+          className={'trip-tab-btn' + (showArchived ? ' active' : '')}
+          onClick={() => setShowArchived(true)}
+        >
+          Архив{archivedCount > 0 ? ` (${archivedCount})` : ''}
+        </button>
+      </div>
+
       {myTrips.length === 0 ? (
         <div className="empty" style={{ width: '100%' }}>
-          Пока нет поездок. Создай первую выше ↑
+          {showArchived ? 'В архиве пока пусто' : 'Пока нет поездок. Создай первую выше ↑'}
         </div>
       ) : (
         <div className="trips-grid">
@@ -125,6 +145,16 @@ export function TripsListPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function ArchiveIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="4" rx="1" />
+      <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8" />
+      <path d="M10 13h4" />
+    </svg>
   );
 }
 
@@ -151,15 +181,35 @@ function TripCard({ trip }: { trip: Trip }) {
     }
   };
 
+  const toggleArchive = async (e: MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await dispatch(trip.isArchived ? { type: 'unarchiveTrip', tripId: trip.id } : { type: 'archiveTrip', tripId: trip.id });
+      toast.success(trip.isArchived ? 'Поездка возвращена из архива' : 'Поездка отправлена в архив');
+    } catch {
+      toast.error('Не удалось изменить статус архива');
+    }
+  };
+
   return (
     <div className="trip-card" onClick={() => navigate('/trips/' + trip.id)}>
       <div className="trip-card-head">
         <h3 className="trip-card-title">{trip.name || 'Без названия'}</h3>
-        {isOwner && (
-          <button type="button" className="remove-btn" title="Удалить поездку" onClick={del}>
-            ✕
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button
+            type="button"
+            className="remove-btn"
+            title={trip.isArchived ? 'Вернуть из архива' : 'Отправить в архив'}
+            onClick={toggleArchive}
+          >
+            <ArchiveIcon />
           </button>
-        )}
+          {isOwner && (
+            <button type="button" className="remove-btn" title="Удалить поездку" onClick={del}>
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="avatar-stack">

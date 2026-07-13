@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { joinTrip, leaveTrip } from '../api/signalr';
 import { useMe, useStore } from '../hooks/useStore';
+import { useToast } from '../hooks/useToast';
 import { disp, fmtDate, plural } from '../lib/format';
 import { disambiguate, tripParticipants } from '../lib/participants';
 import { TripDates } from './trip/TripDates';
@@ -26,8 +27,18 @@ export function TripDetailPage() {
   const { id } = useParams();
   const { db, sessionUserId, dispatch } = useStore();
   const me = useMe()!;
+  const toast = useToast();
   const trip = db.trips.find((t) => t.id === id);
   const [activeTab, setActiveTab] = useState<Tab>('participants');
+
+  const toggleArchive = async () => {
+    if (!trip) return;
+    try {
+      await dispatch(trip.isArchived ? { type: 'unarchiveTrip', tripId: trip.id } : { type: 'archiveTrip', tripId: trip.id });
+    } catch {
+      toast.error('Не удалось изменить статус архива');
+    }
+  };
 
   const ps = useMemo(
     () => (trip ? tripParticipants(trip, db.users, sessionUserId) : []),
@@ -59,13 +70,24 @@ export function TripDetailPage() {
         <div className="header-band trip-band">
           <div className="deco" style={{ width: 230, height: 230 }} />
           <div style={{ position: 'relative' }}>
-            <Link to="/trips" className="back-chip">
-              ← К поездкам
-            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <Link to="/trips" className="back-chip">
+                ← К поездкам
+              </Link>
+              <button
+                type="button"
+                className="back-chip"
+                style={{ border: 'none', cursor: 'pointer' }}
+                onClick={toggleArchive}
+              >
+                {trip.isArchived ? 'Вернуть из архива' : 'В архив'}
+              </button>
+            </div>
 
             <div className="trip-eyebrow eyebrow">
               ПОЕЗДКА · ВЗАИМОРАСЧЁТ · {trip.cur}
               {trip.start && ' · ' + fmtDate(trip.start, trip.end)}
+              {trip.isArchived && ' · В АРХИВЕ'}
             </div>
 
             <input

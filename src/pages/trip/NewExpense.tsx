@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../../hooks/useStore';
 import { useToast } from '../../hooks/useToast';
+import { ApiError } from '../../api/http';
 import { fmt } from '../../lib/format';
 import type { Expense, ExpenseShare, Participant, SplitType, Trip, TripStatus } from '../../types';
 
@@ -43,12 +44,24 @@ export function NewExpense({ trip, ps, idName, status }: Props) {
   const [discountMode, setDiscountMode] = useState<'percent' | 'amount'>('percent');
   const [discountValue, setDiscountValue] = useState('');
 
+  // Общий бюджет (§4.4): живое спонсорство поездки — дефолт для нового расхода.
+  // Пару можно выключить («в этом расходе платит сам за себя»); храним только
+  // выключенных подопечных, по аналогии с off.
+  const [spOff, setSpOff] = useState<Record<string, boolean>>({});
+
   // Эффективный плательщик: выбранный, если он ещё в составе, иначе первый участник.
   const effPayer = ps.some((p) => p.id === payer) ? payer : ps[0] ? ps[0].id : '';
   const isOn = (id: string) => !off[id];
   const sel = ps.filter((p) => isOn(p.id));
 
   const toggle = (id: string) => setOff((o) => ({ ...o, [id]: !o[id] }));
+  const toggleSp = (id: string) => setSpOff((o) => ({ ...o, [id]: !o[id] }));
+
+  // Пары «подопечный → спонсор», значимые для этого расхода: подопечный делит его или платит.
+  const liveSponsors = trip.sponsors ?? {};
+  const relevantPairs = Object.entries(liveSponsors).filter(
+    ([dep]) => sel.some((p) => p.id === dep) || dep === effPayer,
+  );
 
   const gross = withDiscount ? parseFloat(amount) || 0 : 0;
   const discNum = parseFloat(discountValue) || 0;
@@ -59,7 +72,7 @@ export function NewExpense({ trip, ps, idName, status }: Props) {
   const enteredSum = sel.reduce((a, p) => a + (parseFloat(amounts[p.id]) || 0), 0);
   const rest = Math.round(((amt || 0) - enteredSum) * 100) / 100;
 
-  const add = () => {
+  const add = async () => {
     const t = title.trim();
     if (!t) {
       setBad({ title: true });
@@ -112,6 +125,13 @@ export function NewExpense({ trip, ps, idName, status }: Props) {
       share = sel.map((p) => ({ participantId: p.id }));
     }
 
+    // sponsors шлём только если пользователь выключил хоть одну значимую пару —
+    // иначе undefined, и сервер сам снапшотит живое спонсорство поездки.
+    const spChanged = relevantPairs.some(([dep]) => spOff[dep]);
+    const sponsorsMap = spChanged
+      ? Object.fromEntries(Object.entries(liveSponsors).filter(([dep]) => !spOff[dep]))
+      : undefined;
+
     const exp: Expense = {
       id: '', // id придёт от сервера через dispatch
       title: t,
@@ -123,8 +143,20 @@ export function NewExpense({ trip, ps, idName, status }: Props) {
       grossAmount: withDiscount ? gross : undefined,
       discountPercent: withDiscount && discountMode === 'percent' ? discNum : undefined,
       discountAmount: withDiscount && discountMode === 'amount' ? discNum : undefined,
+      sponsors: sponsorsMap,
     };
-    dispatch({ type: 'addExpense', tripId: trip.id, expense: exp });
+    try {
+      await dispatch({ type: 'addExpense', tripId: trip.id, expense: exp });
+    } catch (err) {
+      const code = err instanceof ApiError ? err.code : null;
+      return toast.error(
+        code === 'INVALID_SPONSORS'
+          ? 'Общий бюджет в поездке изменился — проверь пары и попробуй снова'
+          : code === 'TRIP_SETTLING'
+            ? 'Подсчёт завершён — добавление расходов недоступно'
+            : 'Не удалось добавить расход',
+      );
+    }
 
     setTitle('');
     setAmount('');
@@ -135,6 +167,7 @@ export function NewExpense({ trip, ps, idName, status }: Props) {
     setWithDiscount(false);
     setDiscountMode('percent');
     setDiscountValue('');
+    setSpOff({});
   };
 
   // Подсчёт зафиксирован (settling/settled) — мутации денег заблокированы сервером (409 TRIP_SETTLING).
@@ -260,6 +293,26 @@ export function NewExpense({ trip, ps, idName, status }: Props) {
           ))}
         </div>
       </div>
+
+      {relevantPairs.length > 0 && (
+        <div>
+          <div className="hint" style={{ fontWeight: 600, marginBottom: 8 }}>
+            Общий бюджет (выключи, если в этом расходе платит сам за себя):
+          </div>
+          <div className="chips-wrap">
+            {relevantPairs.map(([dep, sp]) => (
+              <button
+                key={dep}
+                type="button"
+                className={'chip' + (!spOff[dep] ? ' on' : '')}
+                onClick={() => toggleSp(dep)}
+              >
+                за {idName[dep]} платит {idName[sp]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {splitType === 1 && sel.length > 0 && (
         <div>

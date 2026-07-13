@@ -39,6 +39,13 @@ export function Participants({ trip, ps, idDisp, idSub, me, status }: Props) {
   const setSponsor = async (participantId: string, sponsorId: string | null) => {
     try {
       await dispatch({ type: 'setSponsor', tripId: trip.id, participantId, sponsorId });
+      // Спонсорство по-расходное (§4.4): флаг — дефолт для НОВЫХ расходов,
+      // уже внесённые сохраняют свой снапшот — предупреждаем явно.
+      toast.info(
+        sponsorId
+          ? 'Общий бюджет включён — действует на новые расходы, уже внесённые не изменились'
+          : 'Общий бюджет снят — уже внесённые расходы остались на спонсоре',
+      );
     } catch (e) {
       const code = e instanceof ApiError ? e.code : null;
       toast.error(

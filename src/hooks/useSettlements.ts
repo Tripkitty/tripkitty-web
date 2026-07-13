@@ -18,9 +18,10 @@ export type ServerTx = {
 
 export type SettlementsData = {
   status: TripStatus | null;
-  // Итоговые балансы (после слияния общих бюджетов — у подопечных 0).
+  // Итоговые балансы с учётом общих бюджетов: доля подопечного в расходах с парой
+  // sponsors зачислена спонсору; непокрытый остаток висит на самом подопечном.
   balances: Record<string, number> | null;
-  // Персональные балансы до слияния бюджетов (для строк «из них за …» у спонсора).
+  // Персональные балансы до переливаний спонсорам (покрытая часть = own - balance).
   ownBalances: Record<string, number> | null;
   transactions: ServerTx[] | null;
   reload: () => void;
@@ -61,11 +62,11 @@ export function useSettlements(trip: Trip | undefined): SettlementsData {
     () =>
       trip
         ? JSON.stringify({
-            e: trip.expenses.map((e) => [e.id, e.amount, e.splitType, e.payer, e.share]),
+            // Карта sponsors расхода влияет на balances — правка пары через PATCH
+            // (без изменения суммы/состава) тоже должна триггерить рефетч.
+            e: trip.expenses.map((e) => [e.id, e.amount, e.splitType, e.payer, e.share, e.sponsors]),
             m: trip.members,
             g: trip.guests.map((x) => x.id),
-            // Назначение/снятие общего бюджета меняет balances/transactions.
-            s: trip.sponsors ?? {},
           })
         : '',
     [trip],

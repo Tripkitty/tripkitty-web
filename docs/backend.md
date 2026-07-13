@@ -47,7 +47,7 @@ realtime-обновления вместо cross-tab `storage`-события.
 | **User** | `id`, `lastName`, `firstName`, `middleName?`, `name` (вычисляемое), `handle`, `email`, `friends[]`, `incoming[]`, `outgoing[]` | ФИО хранится 3 полями; `name` = «Имя Фамилия» вычисляется сервером и отдаётся во всех user-объектах. `pass` → **`passwordHash`** (bcrypt/argon2), наружу никогда не отдаётся. `email`/`handle` — уникальные индексы. |
 | **Trip** | `id`, `name`, `cur`, `ownerId`, `start`, `end`, `members[]`, `guests[]`, `version`, `status` | добавлен `version`/`updatedAt` для оптимистичной блокировки; `status` — стадия подсчёта `active`/`settling`/`settled` (см. §3.5a). |
 | **Guest** | `id` (`g_*`), `lastName`, `firstName`, `middleName?`, `name` (вычисляемое) | ФИО 3 полями, как у User. |
-| **Expense** | `id`, `title`, `amount`, `payer`, `splitType`, `share[]`, `createdBy`, `isTransfer`, `grossAmount?`, `discountPercent?`, `discountAmount?` | `splitType`: 0 — поровну, 1 — по частям, 2 — точные суммы. `share` — массив `{ participantId, weight?, amount? }`. `isTransfer: true` — служебный расход-перевод из reopen (§3.5a), read-only. `amount` хранить аккуратно (см. §4.4 про деньги). Скидка: `grossAmount` + один из `discountPercent`(0..100)/`discountAmount` (не оба сразу) — только для отображения «было/стало», `amount` уже содержит итог после скидки и делится через `share`; сервер проверяет `grossAmount - скидка == amount` (±0.01). |
+| **Expense** | `id`, `title`, `amount`, `payer`, `splitType`, `share[]`, `createdBy`, `isTransfer`, `grossAmount?`, `discountPercent?`, `discountAmount?`, `sponsors` | `splitType`: 0 — поровну, 1 — по частям, 2 — точные суммы. `share` — массив `{ participantId, weight?, amount? }`. `isTransfer: true` — служебный расход-перевод из reopen (§3.5a), read-only. `amount` хранить аккуратно (см. §4.4 про деньги). Скидка: `grossAmount` + один из `discountPercent`(0..100)/`discountAmount` (не оба сразу) — только для отображения «было/стало», `amount` уже содержит итог после скидки и делится через `share`; сервер проверяет `grossAmount - скидка == amount` (±0.01). `sponsors` — снапшот пар общего бюджета `{подопечный → спонсор}` этого расхода (см. §3.4); `{}` — каждый сам за себя. |
 | **TripEvent** | `id`, `title`, `date`, `time`, `endTime`, `createdBy` | без изменений. |
 
 **Граф друзей** (`friends`/`incoming`/`outgoing`) на сервере удобнее хранить отдельной таблицей рёбер
@@ -105,12 +105,21 @@ realtime-обновления вместо cross-tab `storage`-события.
 
 | Метод | Путь | Тело | Назначение |
 |---|---|---|---|
-| `GET` | `/trips` | — | Поездки, где я owner **или** member. ← `TripsListPage` |
+| `GET` | `/trips` | — | Поездки, где я owner **или** member, по умолчанию только неархивные; `?archived=true` — только архивные (отдельный список). ← `TripsListPage` |
 | `POST` | `/trips` | `{ name, cur }` | Создать. `ownerId = me`, `members = [me]`. ← `createTrip` |
 | `GET` | `/trips/{id}` | — | Полная поездка (members, guests, expenses, events). ← `TripDetailPage` |
 | `PATCH` | `/trips/{id}` | `{ name?, start?, end? }` | Переименование/даты. ← `renameTrip`, `setTripStart`, `setTripEnd` |
 | `POST` | `/trips/{id}/clear` | — | Очистить: `expenses=[]`, `guests=[]`, зафиксированный подсчёт; `status` → `active` (members и даты остаются). ← `clearTrip` |
 | `DELETE` | `/trips/{id}` | — | Удалить поездку. Отказывает `409 TRIP_HAS_EXPENSES`, если в поездке есть хоть один расход — сначала удалить расходы или очистить поездку через `/clear`. ← `deleteTrip`, обработка кода в `TripsListPage.tsx` |
+| `POST` | `/trips/{id}/archive` | — | Архивировать (доступно любому участнику, ничем не блокируется). Ответ `{ trip }` (полный TripDetail), `isArchived: true`, шлёт `trip:updated`. ← `archiveTrip` |
+| `POST` | `/trips/{id}/unarchive` | — | Разархивировать. Ответ `{ trip }`, `isArchived: false`, шлёт `trip:updated`. ← `unarchiveTrip` |
+
+**Архивация** (CLIENT_API_GUIDE.md §3.6) — способ убрать завершённые поездки со списка активных, не удаляя
+их; в отличие от `DELETE`, работает при любом количестве расходов. На архивную поездку по-прежнему можно
+зайти через `GET /trips/{id}` и работать с ней как обычно. `TripSummary`/`TripDetail` несут поле `isArchived:
+boolean`. Фронт при бутстрапе (`bootstrapFromApi`) грузит оба списка (`/trips` и `/trips?archived=true`) и
+хранит все поездки в одном `db.trips` с флагом `isArchived` — фильтрация (табы «Активные»/«Архив») чисто
+клиентская, в `TripsListPage`.
 
 ### 3.4 Участники
 
@@ -122,8 +131,9 @@ realtime-обновления вместо cross-tab `storage`-события.
 | `DELETE` | `/trips/{id}/participants/{participantId}` | — | Удалить участника (member или guest). ← `removeParticipant` |
 | `PATCH` | `/trips/{id}/participants/{participantId}/sponsor` | `{ sponsorId }` | Общий бюджет: назначить себя спонсором участника (`sponsorId` = id вызывающего) или снять (`null`). Ответ — `{ trip }` (полный TripDetail), шлёт `trip:updated`. ← `setSponsor` / `Participants` |
 
-**Удаление участника без каскада**: если участник фигурирует хоть в одном расходе (как `payer`
-или в чьём-либо `share`), сервер отвечает `409 PARTICIPANT_HAS_EXPENSES` с `error.details.expenseIds` —
+**Удаление участника без каскада**: если участник фигурирует хоть в одном расходе (как `payer`,
+в чьём-либо `share` или как спонсор в карте `sponsors` расхода, где подопечный реально участвует),
+сервер отвечает `409 PARTICIPANT_HAS_EXPENSES` с `error.details.expenseIds` —
 списком блокирующих расходов. Клиент должен сначала удалить/переназначить эти расходы
 (`DELETE /trips/{id}/expenses/{expenseId}` либо `PATCH` с новым `payer`/`share`) и повторить удаление.
 `removeParticipant` в `StoreContext.tsx` пробрасывает `ApiError`, UI (`Participants.tsx`) ловит
@@ -134,11 +144,18 @@ realtime-обновления вместо cross-tab `storage`-события.
 id участника, который берёт его расходы на себя. Правила сервера: назначить спонсором можно только себя
 (иначе `403 NOT_SPONSOR`; снять — только текущий спонсор), не себе (`422 SPONSOR_SELF`), цепочки запрещены
 (`409 SPONSOR_CHAIN`), за участника уже платят (`409 SPONSOR_TAKEN`), в `settling`/`settled` — `409 TRIP_SETTLING`.
-Расходы вводятся как обычно (подопечный может быть `payer` и участвовать в `share`) — спонсорство влияет
-только на итоговый расчёт (§3.5): баланс подопечного переливается спонсору, в переводы он не попадает.
-Фича ретроактивна и обратима. На фронте мапа `trip.sponsors` (`participantId → sponsorId`) собирается
-в `mapApiTripDetail`; UI — бейдж «платит …» и кнопки взять/снять в `Participants`, строки «из них за …»
-по `ownBalances` в `Balances`.
+Расходы вводятся как обычно (подопечный может быть `payer` и участвовать в `share`).
+
+**Спонсорство по-расходное, не глобальное**: флаг на участнике — дефолт для НОВЫХ расходов.
+При создании расхода сервер снапшотит живое спонсорство поездки в `Expense.sponsors`
+(`{подопечный → спонсор}`); включение/снятие флага уже внесённые расходы не трогает — они хранят
+свой снапшот. Точечное исключение — PATCH расхода с полем `sponsors` (§3.5): пару можно убрать
+или вернуть у конкретного расхода. В расчёте доля/платёж подопечного зачисляются спонсору только
+в расходах с записанной парой; в переводы по покрытым расходам подопечный не попадает.
+На фронте мапа `trip.sponsors` (`participantId → sponsorId`) собирается в `mapApiTripDetail`,
+`Expense.sponsors` мапится в `mapApiExpense`; UI — бейдж «платит …» и кнопки взять/снять
+в `Participants`, чипы пар в `NewExpense`/`ExpenseModal`, строки «из них за …» (покрытая часть
+`ownBalances - balances`) в `Balances`, подпись «за X платит Y» в `ExpenseLog`.
 
 Бизнес-правило для `addMember`: добавлять можно только из числа друзей (или участников, у кого есть доступ —
 определить политику). Гостей может добавлять любой участник.
@@ -147,10 +164,10 @@ id участника, который берёт его расходы на се
 
 | Метод | Путь | Тело | Назначение |
 |---|---|---|---|
-| `POST` | `/trips/{id}/expenses` | `{ title, amount, payer, splitType, share[], grossAmount?, discountPercent?, discountAmount? }` | Добавить расход. ← `addExpense` / `NewExpense` |
-| `PATCH` | `/trips/{id}/expenses/{expenseId}` | как у `POST` (полная замена) | Отредактировать расход. ← `editExpense` / `ExpenseModal` |
+| `POST` | `/trips/{id}/expenses` | `{ title, amount, payer, splitType, share[], grossAmount?, discountPercent?, discountAmount?, sponsors? }` | Добавить расход. `sponsors` не передан — сервер снапшотит живое спонсорство поездки; передан — как есть (только живые пары, иначе `422 INVALID_SPONSORS`); `{}` — каждый сам за себя. ← `addExpense` / `NewExpense` |
+| `PATCH` | `/trips/{id}/expenses/{expenseId}` | как у `POST` (полная замена) | Отредактировать расход. Исключение — `sponsors`: не передан = оставить карту расхода как есть; передан — заменяет целиком (живые пары ПЛЮС уже записанные на расходе, иначе `422 INVALID_SPONSORS`). ← `editExpense` / `ExpenseModal` |
 | `DELETE` | `/trips/{id}/expenses/{expenseId}` | — | Удалить. ← `removeExpense` |
-| `GET` | `/trips/{id}/settlements` | — | `{ status, balances, ownBalances, transactions[] }` — балансы + минимальный набор переводов. `balances` — после слияния общих бюджетов (§3.4: у подопечных `0`, их баланс перелит спонсору), `ownBalances` — персональные до слияния. Каждый перевод несёт `toPayment` — реквизиты получателя (СБП), см. §3.8; после финализации ещё `id`/`isPaid`/`paidAt` (§3.5a). ← `useSettlements` |
+| `GET` | `/trips/{id}/settlements` | — | `{ status, balances, ownBalances, transactions[] }` — балансы + минимальный набор переводов. `balances` — с учётом общих бюджетов (§3.4: доля подопечного в расходах с парой `sponsors` зачислена спонсору; непокрытый остаток висит на самом подопечном), `ownBalances` — персональные до переливаний (покрытая часть = `ownBalances - balances`). Каждый перевод несёт `toPayment` — реквизиты получателя (СБП), см. §3.8; после финализации ещё `id`/`isPaid`/`paidAt` (§3.5a). ← `useSettlements` |
 
 Способы разбивки (`splitType`, элементы `share` — `{ participantId, weight?, amount? }`):
 - `0` Equal — поровну между участниками `share` (поля `weight`/`amount` не нужны);
@@ -164,7 +181,9 @@ id участника, который берёт его расходы на се
 - `createdBy` проставляет сервер из токена (не доверять клиенту);
 - скидка (необязательна): нельзя указать `discountPercent` и `discountAmount` одновременно;
   если указана скидка — `grossAmount` обязателен и `> 0`; `discountPercent` — `0..100`;
-  `discountAmount` — `>= 0`; `grossAmount` минус скидка должен равняться `amount` ±0.01.
+  `discountAmount` — `>= 0`; `grossAmount` минус скидка должен равняться `amount` ±0.01;
+- `sponsors` (необязателен): при POST — только пары живого спонсорства поездки, при PATCH —
+  живые пары плюс уже записанные на расходе; чужие пары → `422 INVALID_SPONSORS` (field `sponsors`).
 
 `GET /settlements` переносит `src/lib/settlements.ts` на бэкенд: балансы (плательщику +amount, каждому из
 `share` — его доля по `splitType`, округление до копеек) и жадная минимизация переводов. Можно считать на лету.
